@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Categories to Firebase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .instructions {
+            background: #f0f4ff;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions ol {
+            margin-left: 1.5rem;
+            color: #666;
+        }
+
+        .instructions li {
+            margin: 0.5rem 0;
+        }
+
+        .config-section {
+            background: #fff9e6;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #f39c12;
+        }
+
+        .config-section h3 {
+            color: #f39c12;
+            margin-bottom: 1rem;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 0.5rem;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: #f39c12;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .category-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .category-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .category-emoji {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .category-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .category-link {
+            font-size: 0.8rem;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 Add Categories to Firebase</h1>
+
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li>First, paste your Firebase config below (from <code>src/firebase/config.js</code>)</li>
+                <li>Click "Add Categories to Firebase"</li>
+                <li>Wait for success message</li>
+                <li>Go to your admin panel to manage visibility and upload images!</li>
+            </ol>
+        </div>
+
+        <div class="config-section">
+            <h3>🔧 Firebase Configuration</h3>
+            <p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">
+                Copy your Firebase config from <code>src/firebase/config.js</code> and paste it here:
+            </p>
+            <textarea id="firebaseConfig" class="config-input" rows="8" placeholder='Paste your Firebase config here, e.g.:
+{
+  apiKey: "your-api-key",
+  authDomain: "your-app.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-app.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "your-app-id"
+}'></textarea>
+        </div>
+
+        <h3 style="margin-bottom: 1rem;">📦 Categories to Add:</h3>
+        <div class="category-preview">
+            <div class="category-card">
+                <div class="category-emoji">👔</div>
+                <div class="category-name">Premium Shirts</div>
+                <div class="category-link">/products?category=shirts</div>
+            </div>
+            <div class="category-card">
+                <div class="category-emoji">👕</div>
+                <div class="category-name">Designer T-Shirts</div>
+                <div class="category-link">/products?category=tshirts</div>
+            </div>
+            <div class="category-card">
+                <div class="category-emoji">👖</div>
+                <div class="category-name">Luxury Jeans</div>
+                <div class="category-link">/products?category=jeans</div>
+            </div>
+            <div class="category-card">
+                <div class="category-emoji">🧥</div>
+                <div class="category-name">Exclusive Jackets</div>
+                <div class="category-link">/products?category=jackets</div>
+            </div>
+            <div class="category-card">
+                <div class="category-emoji">👟</div>
+                <div class="category-name">Casual Wear</div>
+                <div class="category-link">/products?category=casual</div>
+            </div>
+            <div class="category-card">
+                <div class="category-emoji">🎩</div>
+                <div class="category-name">Formal Wear</div>
+                <div class="category-link">/products?category=formal</div>
+            </div>
+        </div>
+
+        <button class="btn" id="addBtn" onclick="addCategories()">
+            🚀 Add Categories to Firebase
+        </button>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        window.addCategories = async function () {
+            const configInput = document.getElementById('firebaseConfig');
+            const statusDiv = document.getElementById('status');
+            const addBtn = document.getElementById('addBtn');
+
+            try {
+                // Parse Firebase config
+                let config;
+                try {
+                    // Try to parse as JSON first
+                    const configText = configInput.value.trim();
+                    // Remove 'export const firebaseConfig = ' if present
+                    const cleanConfig = configText
+                        .replace(/export\s+const\s+firebaseConfig\s*=\s*/, '')
+                        .replace(/;?\s*$/, '');
+                    config = eval('(' + cleanConfig + ')');
+                } catch (e) {
+                    throw new Error('Invalid Firebase config format. Please paste the config object from your config.js file.');
+                }
+
+                if (!config.apiKey || !config.projectId) {
+                    throw new Error('Firebase config is missing required fields (apiKey, projectId)');
+                }
+
+                // Initialize Firebase
+                const app = initializeApp(config);
+                const db = getFirestore(app);
+
+                // Disable button
+                addBtn.disabled = true;
+                addBtn.textContent = '⏳ Adding categories...';
+
+                // Categories to add
+                const categories = [
+                    {
+                        name: 'Premium Shirts',
+                        image: '👔',
+                        link: '/products?category=shirts',
+                        color: '#667eea',
+                        visible: true,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        name: 'Designer T-Shirts',
+                        image: '👕',
+                        link: '/products?category=tshirts',
+                        color: '#764ba2',
+                        visible: true,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        name: 'Luxury Jeans',
+                        image: '👖',
+                        link: '/products?category=jeans',
+                        color: '#d4af37',
+                        visible: true,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        name: 'Exclusive Jackets',
+                        image: '🧥',
+                        link: '/products?category=jackets',
+                        color: '#b76e79',
+                        visible: false,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        name: 'Casual Wear',
+                        image: '👟',
+                        link: '/products?category=casual',
+                        color: '#10b981',
+                        visible: false,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        name: 'Formal Wear',
+                        image: '🎩',
+                        link: '/products?category=formal',
+                        color: '#8b5cf6',
+                        visible: false,
+                        createdAt: new Date().toISOString()
+                    }
+                ];
+
+                // Add each category
+                let successCount = 0;
+                for (const category of categories) {
+                    try {
+                        await addDoc(collection(db, 'categories'), category);
+                        successCount++;
+                    } catch (err) {
+                        console.error('Error adding category:', category.name, err);
+                    }
+                }
+
+                // Show success message
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `
+                    <strong>✅ Success!</strong><br>
+                    Added ${successCount} categories to Firebase!<br><br>
+                    <strong>Next steps:</strong><br>
+                    1. Go to your admin panel at <code>/admin/content</code><br>
+                    2. Click "Categories" tab<br>
+                    3. Edit categories to upload images<br>
+                    4. Toggle visibility to show/hide on home page<br>
+                    5. Only visible categories (max 6) will appear on home page
+                `;
+
+                addBtn.textContent = '✅ Categories Added Successfully!';
+
+            } catch (error) {
+                console.error('Error:', error);
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `
+                    <strong>❌ Error:</strong><br>
+                    ${error.message}<br><br>
+                    <strong>Make sure:</strong><br>
+                    1. You've pasted the correct Firebase config<br>
+                    2. You've updated Firestore security rules<br>
+                    3. Your user has admin role in the database
+                `;
+
+                addBtn.disabled = false;
+                addBtn.textContent = '🚀 Add Categories to Firebase';
+            }
+        };
+    </script>
+</body>
+
+</html>

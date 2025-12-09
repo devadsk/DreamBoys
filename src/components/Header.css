@@ -1,0 +1,238 @@
+.header {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    height: 80px;
+    display: flex;
+    align-items: center;
+}
+
+.header-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Left Section */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #000;
+    text-decoration: none;
+}
+
+.nav {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.nav a {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #282c3f;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding-bottom: 4px;
+    border-bottom: 4px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.nav a:hover {
+    border-bottom-color: #ff3f6c;
+}
+
+.admin-link {
+    color: #ff3f6c !important;
+}
+
+/* Center Search */
+.header-search {
+    flex: 1;
+    max-width: 500px;
+    margin: 0 2rem;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background: #f5f5f6;
+    border: 1px solid #f5f5f6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    gap: 10px;
+}
+
+.search-bar svg {
+    color: #282c3f;
+    opacity: 0.6;
+}
+
+.search-bar input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 0.875rem;
+    color: #282c3f;
+    outline: none;
+}
+
+.search-bar input::placeholder {
+    color: #94969f;
+}
+
+/* Right Actions */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.profile-section,
+.cart-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    text-decoration: none;
+    color: #282c3f;
+    position: relative;
+}
+
+.profile-section svg,
+.cart-section svg {
+    width: 24px;
+    height: 24px;
+}
+
+.profile-section span,
+.cart-section span {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -8px;
+    background: #ff3f6c;
+    color: white;
+    font-size: 10px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: absolute;
+    top: 55px;
+    right: -20px;
+    width: 280px;
+    background: white;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    z-index: 100;
+}
+
+.dropdown-header {
+    padding: 16px;
+    border-bottom: 1px solid #eaeaec;
+}
+
+.dropdown-header p {
+    font-weight: 700;
+    font-size: 14px;
+    color: #282c3f;
+    margin-bottom: 4px;
+}
+
+.dropdown-header small {
+    font-size: 12px;
+    color: #94969f;
+}
+
+.user-dropdown a,
+.user-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: #282c3f;
+    font-size: 14px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: font-weight 0.1s;
+}
+
+.user-dropdown a:hover,
+.user-dropdown button:hover {
+    font-weight: 700;
+}
+
+/* Mobile Toggle */
+.menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.menu-toggle span {
+    width: 24px;
+    height: 2px;
+    background: #000;
+}
+
+@media (max-width: 900px) {
+    .header-search {
+        display: none;
+    }
+
+    .nav {
+        display: none;
+    }
+
+    .menu-toggle {
+        display: flex;
+    }
+
+    .nav.nav-open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 80px;
+        left: 0;
+        width: 100%;
+        background: white;
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav.nav-open a {
+        padding: 12px 0;
+        border-bottom: 1px solid #eee;
+    }
+}

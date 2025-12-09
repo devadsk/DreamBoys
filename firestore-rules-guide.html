@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firestore Rules Tester - DreamBoys</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .step {
+            background: white;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .success {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist li {
+            padding: 0.5rem 0;
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .checklist li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔧 Firestore Security Rules Fix</h1>
+        <p class="subtitle">Fix the "insufficient or missing permission" error</p>
+
+        <div class="section">
+            <h2>📋 Quick Instructions</h2>
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Open Firebase Console</strong>
+                <p style="margin-left: 2.5rem; margin-top: 0.5rem;">
+                    Go to <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a>
+                </p>
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Navigate to Firestore Rules</strong>
+                <p style="margin-left: 2.5rem; margin-top: 0.5rem;">
+                    Click: <strong>Firestore Database</strong> → <strong>Rules</strong> tab
+                </p>
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Copy the Rules Below</strong>
+                <p style="margin-left: 2.5rem; margin-top: 0.5rem;">
+                    <button class="btn" onclick="copyRules()">📋 Copy Rules to Clipboard</button>
+                </p>
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Paste & Publish</strong>
+                <p style="margin-left: 2.5rem; margin-top: 0.5rem;">
+                    Paste in Firebase Console and click <strong>Publish</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📝 Security Rules (Click to Copy)</h2>
+            <div class="code-block" id="rulesCode">rules_version = '2';
+
+                service cloud.firestore {
+                match /databases/{database}/documents {
+
+                function isSignedIn() {
+                return request.auth != null;
+                }
+
+                function isOwner(userId) {
+                return isSignedIn() && request.auth.uid == userId;
+                }
+
+                function isAdmin() {
+                return isSignedIn() &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                }
+
+                match /users/{userId} {
+                allow read: if isOwner(userId);
+                allow create: if isSignedIn() && request.auth.uid == userId;
+                allow update: if isOwner(userId) &&
+                (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid']));
+                allow read: if isAdmin();
+                allow update: if isAdmin();
+                }
+
+                match /products/{productId} {
+                allow read: if true;
+                allow create, update, delete: if isAdmin();
+                }
+
+                match /orders/{orderId} {
+                allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+                allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+                allow read, update: if isAdmin();
+                }
+                }
+                }</div>
+        </div>
+
+        <div class="section">
+            <h2>✅ What These Rules Do</h2>
+            <ul class="checklist">
+                <li>Users can read and update their own profile</li>
+                <li>Users CANNOT change their role to admin</li>
+                <li>Users CANNOT access other users' data</li>
+                <li>Anyone can view products</li>
+                <li>Only admins can manage products</li>
+                <li>Users can view and create their own orders</li>
+                <li>Admins have full access to everything</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Important:</strong> After publishing the rules, clear your browser cache (Ctrl+Shift+R) and try
+            updating your profile again.
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ Need Help?</strong> Check the <code>FIRESTORE_SECURITY_RULES.md</code> file in your project for
+            detailed documentation.
+        </div>
+    </div>
+
+    <script>
+        function copyRules() {
+            const rulesText = document.getElementById('rulesCode').textContent;
+            navigator.clipboard.writeText(rulesText).then(() => {
+                alert('✅ Rules copied to clipboard!\n\nNow paste them in Firebase Console and click Publish.');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('❌ Failed to copy. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+
+</html>

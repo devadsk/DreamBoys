@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is the owner
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Allow users to read their own data
+      allow read: if isOwner(userId);
+      
+      // Allow users to create their own profile during registration
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Allow users to update their own data (except role field)
+      allow update: if isOwner(userId) && 
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid']));
+      
+      // Allow admins to read all users
+      allow read: if isAdmin();
+      
+      // Allow admins to update any user
+      allow update: if isAdmin();
+    }
+    
+    // Products collection rules
+    match /products/{productId} {
+      // Anyone can read products
+      allow read: if true;
+      
+      // Only admins can create, update, or delete products
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Orders collection rules
+    match /orders/{orderId} {
+      // Users can read their own orders
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Users can create orders with their own userId
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Admins can read and update all orders
+      allow read, update: if isAdmin();
+    }
+    
+    // Testimonials collection rules
+    match /testimonials/{testimonialId} {
+      // Anyone can read testimonials (for display on home page)
+      allow read: if true;
+      
+      // Only admins can create, update, or delete testimonials
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Categories collection rules
+    match /categories/{categoryId} {
+      // Anyone can read categories (for display on home page)
+      allow read: if true;
+      
+      // Only admins can create, update, or delete categories
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
