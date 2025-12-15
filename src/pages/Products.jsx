@@ -167,6 +167,14 @@ const Products = () => {
                 <div className="products-layout">
                     {/* Sidebar Filters */}
                     <aside className="products-sidebar">
+                        {/* Sidebar Header */}
+                        <div className="sidebar-header">
+                            <h2>FILTERS</h2>
+                            <button className="clear-all-btn" onClick={resetFilters}>
+                                CLEAR ALL
+                            </button>
+                        </div>
+
                         <div className="filter-section">
                             <h3>Search</h3>
                             <input
@@ -181,20 +189,18 @@ const Products = () => {
                         <div className="filter-section">
                             <h3>Categories</h3>
                             <div className="filter-options">
-                                <button
-                                    className={categoryFilter === 'all' ? 'active' : ''}
-                                    onClick={() => setCategoryFilter('all')}
-                                >
-                                    ALL PRODUCTS
-                                </button>
                                 {availableCategories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        className={categoryFilter === cat ? 'active' : ''}
-                                        onClick={() => setCategoryFilter(cat)}
-                                    >
-                                        {cat.toUpperCase()}
-                                    </button>
+                                    <div key={cat} className="filter-option-item">
+                                        <input
+                                            type="checkbox"
+                                            id={`cat-${cat}`}
+                                            checked={categoryFilter === cat}
+                                            onChange={() => setCategoryFilter(categoryFilter === cat ? 'all' : cat)}
+                                        />
+                                        <label htmlFor={`cat-${cat}`}>
+                                            {cat}
+                                        </label>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -222,15 +228,17 @@ const Products = () => {
                                 <h3>Colors</h3>
                                 <div className="color-options">
                                     {availableColors.map(color => (
-                                        <button
-                                            key={color}
-                                            className={`color-btn ${selectedColors.includes(color) ? 'active' : ''}`}
-                                            onClick={() => toggleColor(color)}
-                                            style={{ backgroundColor: getColorHex(color) }}
-                                            title={color}
-                                        >
-                                            {selectedColors.includes(color) && <span>✓</span>}
-                                        </button>
+                                        <div key={color} className="filter-option-item">
+                                            <input
+                                                type="checkbox"
+                                                id={`color-${color}`}
+                                                checked={selectedColors.includes(color)}
+                                                onChange={() => toggleColor(color)}
+                                            />
+                                            <label htmlFor={`color-${color}`}>
+                                                {color}
+                                            </label>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
