@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { logout } from '../firebase/firebaseService';
 import './Header.css';
 
+import logo from '../assets/logo.jpg';
+
 const Header = () => {
     const { currentUser, userData, isAdmin } = useAuth();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -21,7 +23,10 @@ const Header = () => {
             <div className="header-container">
                 {/* Left: Logo & Nav */}
                 <div className="header-left">
-                    <Link to="/" className="logo">DreamBoys</Link>
+                    <Link to="/" className="logo">
+                        <img src={logo} alt="DreamBoys" className="logo-img" />
+                        DreamBoys
+                    </Link>
 
                     <nav className={`nav ${menuOpen ? 'nav-open' : ''}`}>
                         <Link to="/" onClick={() => setMenuOpen(false)}>HOME</Link>
