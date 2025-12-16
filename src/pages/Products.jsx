@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getProducts } from '../firebase/firebaseService';
+import { searchProducts } from '../utils/searchUtils';
+import InlineLoader from '../components/InlineLoader';
 import './Products.css';
 
 const Products = () => {
+    const [searchParams] = useSearchParams();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -19,6 +22,14 @@ const Products = () => {
     useEffect(() => {
         loadProducts();
     }, []);
+
+    // Handle URL search parameter
+    useEffect(() => {
+        const searchParam = searchParams.get('search');
+        if (searchParam) {
+            setSearchQuery(searchParam);
+        }
+    }, [searchParams]);
 
     const loadProducts = async () => {
         const result = await getProducts();
@@ -82,21 +93,18 @@ const Products = () => {
         }
     }, [minPrice, maxPrice, products.length]);
 
-    // Filter products
+    // Filter products with advanced search
     const filteredProducts = useMemo(() => {
         let filtered = products;
 
-        if (categoryFilter !== 'all') {
-            filtered = filtered.filter(p => p.category === categoryFilter);
+        // Apply advanced context-based search
+        if (searchQuery) {
+            filtered = searchProducts(filtered, searchQuery);
         }
 
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            filtered = filtered.filter(p =>
-                p.name?.toLowerCase().includes(q) ||
-                p.description?.toLowerCase().includes(q) ||
-                p.category?.toLowerCase().includes(q)
-            );
+        // Apply category filter
+        if (categoryFilter !== 'all') {
+            filtered = filtered.filter(p => p.category === categoryFilter);
         }
 
         filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
@@ -154,7 +162,7 @@ const Products = () => {
         return colors[name.toLowerCase()] || '#ccc';
     };
 
-    if (loading) return <div className="loading">Loading products...</div>;
+    if (loading) return <InlineLoader message="Loading..." />;
 
     return (
         <div className="products-page">

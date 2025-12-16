@@ -67,13 +67,28 @@
     box-shadow: 0 0 0 3px rgba(255, 63, 108, 0.1);
 }
 
+.auth-error,
 .error-message {
     background: #fee2e2;
     color: #dc2626;
-    padding: 0.875rem;
+    padding: 0.875rem 1rem;
     border-radius: 8px;
     font-size: 0.9rem;
     border-left: 4px solid #dc2626;
+    margin-bottom: 1rem;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .auth-submit {
@@ -99,24 +114,35 @@
     cursor: not-allowed;
 }
 
+.auth-divider,
 .divider {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin: 1.5rem 0;
+    text-align: center;
+    margin: 2rem 0;
+    position: relative;
 }
 
+.auth-divider::before,
+.auth-divider::after,
 .divider::before,
 .divider::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: #e5e7eb;
+    background: linear-gradient(90deg, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
 }
 
+.auth-divider span,
 .divider span {
+    padding: 0 1rem;
     color: #9ca3af;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: white;
+    position: relative;
+    z-index: 1;
 }
 
 .google-btn {

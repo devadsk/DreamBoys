@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getProduct, getProducts, getProductReviews } from '../firebase/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import InlineLoader from '../components/InlineLoader';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
@@ -62,7 +63,7 @@ const ProductDetail = () => {
         setActiveAccordion(activeAccordion === section ? null : section);
     };
 
-    if (!product) return <div className="loading">Loading...</div>;
+    if (!product) return <InlineLoader message="Loading..." />;
 
     const productImages = product.images || (product.image ? [product.image] : []);
     const averageRating = product.rating || 4.5; // Default for demo matches reference

@@ -55,14 +55,14 @@ const Home = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <motion.div
+                        {/* <motion.div
                             className="hero-badge"
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.2, duration: 0.5 }}
                         >
                             ✨ Premium Collection 2024
-                        </motion.div>
+                        </motion.div> */}
 
                         <h1 className="hero-title-premium">
                             Redefine Your
