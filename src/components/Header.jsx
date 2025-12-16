@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 import { logout } from '../firebase/firebaseService';
 import './Header.css';
 
@@ -10,6 +11,7 @@ import logo from '../assets/logo.jpg';
 const Header = () => {
     const { currentUser, userData, isAdmin } = useAuth();
     const { wishlistCount } = useWishlist();
+    const { cartCount } = useCart();
     const [menuOpen, setMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -132,7 +134,7 @@ const Header = () => {
                             <path d="M16 10a4 4 0 0 1-8 0"></path>
                         </svg>
                         <span>Bag</span>
-                        <span className="cart-badge">0</span>
+                        {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
                     </Link>
 
                     <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
