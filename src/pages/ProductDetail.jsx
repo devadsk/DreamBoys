@@ -10,8 +10,8 @@ import './ProductDetail.css';
 const ProductDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { currentUser } = useAuth();
-    const { addToCart } = useCart();
+    const { currentUser, userData } = useAuth();
+    const { addToCart, getCartQuantity } = useCart();
     const { addToWishlist } = useWishlist();
 
     const [product, setProduct] = useState(null);
@@ -205,11 +205,21 @@ const ProductDetail = () => {
 
     const handleColorSelect = (color) => {
         setSelectedColor(color);
+        // Reset quantity when color changes
+        setQuantity(1);
+        // Reset to first image when color changes
+        setSelectedImage(0);
         // Reset size if current size isn't available in new color
         const newAvailableSizes = getAvailableSizes(product, color);
         if (!newAvailableSizes.includes(selectedSize)) {
             setSelectedSize(newAvailableSizes[0] || '');
         }
+    };
+
+    const handleSizeSelect = (size) => {
+        setSelectedSize(size);
+        // Reset quantity to 1 when size changes to prevent stock overflow
+        setQuantity(1);
     };
 
     // Calculate Stock
@@ -231,9 +241,27 @@ const ProductDetail = () => {
 
     const stockLevel = getStockLevel();
 
+    // Calculate available stock (total stock minus what's already in cart)
+    const cartQuantity = getCartQuantity(id, selectedSize, selectedColor);
+    const availableStock = Math.max(0, stockLevel - cartQuantity);
+
     if (!product) return <InlineLoader message="Loading..." />;
 
-    const productImages = product.images || (product.image ? [product.image] : []);
+    // Get images for selected color or fallback to default images
+    let productImages;
+    if (product.colorImages && selectedColor && product.colorImages[selectedColor]) {
+        // Use color-specific images
+        productImages = product.colorImages[selectedColor];
+    } else if (product.images) {
+        // Fallback to default images
+        productImages = product.images;
+    } else if (product.image) {
+        // Fallback to single image
+        productImages = [product.image];
+    } else {
+        productImages = [];
+    }
+
     const availableSizes = getAvailableSizes(product, selectedColor);
 
     // Calculate rating from reviews
@@ -322,7 +350,7 @@ const ProductDetail = () => {
                                     <button
                                         key={size}
                                         className={`size-pill-btn ${selectedSize === size ? 'selected' : ''}`}
-                                        onClick={() => setSelectedSize(size)}
+                                        onClick={() => handleSizeSelect(size)}
                                     >
                                         {size}
                                     </button>
@@ -333,8 +361,12 @@ const ProductDetail = () => {
 
                             {/* Stock Indicator */}
                             {selectedSize && (
-                                <div className={`stock-indicator ${stockLevel <= 5 ? 'low-stock' : ''}`}>
-                                    {stockLevel > 0 ? `${stockLevel} items left` : 'Out of Stock'}
+                                <div className={`stock-indicator ${availableStock <= 5 ? 'low-stock' : ''}`}>
+                                    {availableStock > 0 ? (
+                                        cartQuantity > 0 ? `${availableStock} more available (${cartQuantity} in cart)` : `${availableStock} items left`
+                                    ) : (
+                                        cartQuantity > 0 ? `All items in cart (${cartQuantity})` : 'Out of Stock'
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -360,7 +392,7 @@ const ProductDetail = () => {
                                 <div className="quantity-stepper">
                                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</button>
                                     <span>{quantity}</span>
-                                    <button onClick={() => setQuantity(Math.min(quantity + 1, stockLevel))}>+</button>
+                                    <button onClick={() => setQuantity(Math.min(quantity + 1, availableStock))}>+</button>
                                 </div>
                             </div>
                         )}
@@ -370,10 +402,10 @@ const ProductDetail = () => {
                             <button
                                 className="add-cart-btn-black"
                                 onClick={handleAddToCart}
-                                disabled={stockLevel === 0}
-                                style={{ opacity: stockLevel === 0 ? 0.5 : 1, cursor: stockLevel === 0 ? 'not-allowed' : 'pointer' }}
+                                disabled={availableStock === 0}
+                                style={{ opacity: availableStock === 0 ? 0.5 : 1, cursor: availableStock === 0 ? 'not-allowed' : 'pointer' }}
                             >
-                                {stockLevel > 0 ? 'Add to Cart' : 'Out of Stock'}
+                                {availableStock > 0 ? 'Add to Cart' : (cartQuantity > 0 ? 'All in Cart' : 'Out of Stock')}
                             </button>
                             <button className="wishlist-btn-outline" onClick={handleAddToWishlist}>♡</button>
                         </div>
@@ -558,12 +590,13 @@ const ProductDetail = () => {
                                                     <div className="review-date-right" style={{ fontSize: '12px', color: '#888' }}>
                                                         {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
                                                     </div>
-                                                    {currentUser && currentUser.uid === review.userId && (
+                                                    {currentUser && (currentUser.uid === review.userId || userData?.role === 'admin') && (
                                                         <button
                                                             onClick={() => handleDeleteReview(review.id)}
                                                             style={{ marginTop: '5px', color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}
+                                                            title={userData?.role === 'admin' && currentUser.uid !== review.userId ? 'Delete as Admin' : 'Delete your review'}
                                                         >
-                                                            Delete
+                                                            Delete {userData?.role === 'admin' && currentUser.uid !== review.userId ? '(Admin)' : ''}
                                                         </button>
                                                     )}
                                                 </div>

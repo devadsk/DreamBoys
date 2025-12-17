@@ -1,5 +1,4 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
@@ -8,73 +7,104 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check if user is the owner
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
     // Helper function to check if user is admin
     function isAdmin() {
       return isSignedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Users collection rules
-    match /users/{userId} {
-      // Allow users to read their own data
-      allow read: if isOwner(userId);
-      
-      // Allow users to create their own profile during registration
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      
-      // Allow users to update their own data (except role field)
-      allow update: if isOwner(userId) && 
-                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid']));
-      
-      // Allow admins to read all users
-      allow read: if isAdmin();
-      
-      // Allow admins to update any user
-      allow update: if isAdmin();
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
     
-    // Products collection rules
+    // ===== USERS COLLECTION =====
+    match /users/{userId} {
+      // Anyone can read user profiles (for displaying names, etc.)
+      allow read: if true;
+      
+      // Users can create their own profile during registration
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can update their own profile
+      allow update: if isOwner(userId);
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ===== PRODUCTS COLLECTION =====
     match /products/{productId} {
-      // Anyone can read products
+      // Anyone can read products (public catalog)
       allow read: if true;
       
       // Only admins can create, update, or delete products
       allow create, update, delete: if isAdmin();
     }
     
-    // Orders collection rules
+    // ===== REVIEWS COLLECTION =====
+    match /reviews/{reviewId} {
+      // Anyone can read reviews (public)
+      allow read: if true;
+      
+      // Authenticated users can create reviews
+      allow create: if isSignedIn() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own reviews
+      allow update: if isSignedIn() && 
+                      resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own reviews, admins can delete any
+      allow delete: if isSignedIn() && 
+                      (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // ===== ORDERS COLLECTION =====
     match /orders/{orderId} {
-      // Users can read their own orders
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Users can read their own orders, admins can read all
+      allow read: if isSignedIn() && 
+                    (resource.data.userId == request.auth.uid || isAdmin());
       
-      // Users can create orders with their own userId
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // Authenticated users can create orders
+      allow create: if isSignedIn() && 
+                      request.resource.data.userId == request.auth.uid;
       
-      // Admins can read and update all orders
-      allow read, update: if isAdmin();
+      // Only admins can update orders (for status changes)
+      allow update: if isAdmin();
+      
+      // Only admins can delete orders
+      allow delete: if isAdmin();
     }
     
-    // Testimonials collection rules
-    match /testimonials/{testimonialId} {
-      // Anyone can read testimonials (for display on home page)
-      allow read: if true;
-      
-      // Only admins can create, update, or delete testimonials
-      allow create, update, delete: if isAdmin();
-    }
-    
-    // Categories collection rules
+    // ===== CATEGORIES COLLECTION =====
     match /categories/{categoryId} {
-      // Anyone can read categories (for display on home page)
+      // Anyone can read categories
       allow read: if true;
       
-      // Only admins can create, update, or delete categories
+      // Only admins can manage categories
       allow create, update, delete: if isAdmin();
+    }
+    
+    // ===== TESTIMONIALS COLLECTION =====
+    match /testimonials/{testimonialId} {
+      // Anyone can read testimonials
+      allow read: if true;
+      
+      // Only admins can manage testimonials
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ===== CART ITEMS (if stored separately) =====
+    match /carts/{userId}/items/{itemId} {
+      // Users can only access their own cart
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ===== WISHLIST ITEMS (if stored separately) =====
+    match /wishlists/{userId}/items/{itemId} {
+      // Users can only access their own wishlist
+      allow read, write: if isOwner(userId);
     }
   }
 }

@@ -22,6 +22,7 @@ const AdminProducts = () => {
     const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
 
     const [formData, setFormData] = useState({
+        sku: '',
         name: '',
         price: '',
         description: '',
@@ -42,10 +43,18 @@ const AdminProducts = () => {
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
 
-    const sampleCSV = `name,description,price,originalPrice,discount,category,colors,colorStock,sizeStock,images,features,specifications
-Premium White Shirt,"Classic formal white shirt made from 100% premium cotton. Perfect for office wear and formal occasions.",59.99,79.99,25,shirts,White Blue Pink,White:30 Blue:25 Pink:20,XS:5 S:15 M:20 L:10 XL:5,https://i.imgur.com/example1.jpg|https://i.imgur.com/example1b.jpg,"Premium Quality Cotton|Wrinkle Resistant|Easy Care|Comfortable Fit","Material:100% Cotton|Fit:Regular|Care:Machine Wash|Origin:Made in USA"
-Casual Blue T-Shirt,"Comfortable cotton t-shirt for everyday wear. Soft fabric with modern fit.",29.99,39.99,25,tshirts,Blue Red Green Black,Blue:40 Red:30 Green:25 Black:50,S:25 M:30 L:25 XL:15 XXL:5,https://i.imgur.com/example2.jpg,"100% Cotton|Breathable Fabric|Durable Construction|Modern Fit","Material:Cotton Blend|Fit:Slim|Care:Machine Wash Cold|Weight:180 GSM"
-Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for all-day wear.",89.99,119.99,25,jeans,Blue Black,Blue:45 Black:35,28:10 30:15 32:20 34:15 36:10,https://i.imgur.com/example3.jpg|https://i.imgur.com/example3b.jpg|https://i.imgur.com/example3c.jpg,"Stretch Denim|5-Pocket Design|Reinforced Stitching|Fade Resistant","Material:98% Cotton 2% Elastane|Fit:Straight|Rise:Mid|Wash:Dark Blue"`;
+    // Bulk image upload states
+    const [showBulkImageUpload, setShowBulkImageUpload] = useState(false);
+    const [bulkImages, setBulkImages] = useState([]);
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const [imageUploadProgress, setImageUploadProgress] = useState(0);
+    const [uploadedImageMap, setUploadedImageMap] = useState({}); // { SKU: [url1, url2, url3, url4] }
+    const [imageUploadResult, setImageUploadResult] = useState(null);
+
+    const sampleCSV = `sku,name,description,price,originalPrice,discount,category,colors,colorStock,sizeStock,features,specifications
+001,Premium White Shirt,"Classic formal white shirt made from 100% premium cotton. Perfect for office wear and formal occasions.",59.99,79.99,25,shirts,White Blue Pink,White:30 Blue:25 Pink:20,XS:5 S:15 M:20 L:10 XL:5,"Premium Quality Cotton|Wrinkle Resistant|Easy Care|Comfortable Fit","Material:100% Cotton|Fit:Regular|Care:Machine Wash|Origin:Made in USA"
+002,Casual Blue T-Shirt,"Comfortable cotton t-shirt for everyday wear. Soft fabric with modern fit.",29.99,39.99,25,tshirts,Blue Red Green Black,Blue:40 Red:30 Green:25 Black:50,S:25 M:30 L:25 XL:15 XXL:5,"100% Cotton|Breathable Fabric|Durable Construction|Modern Fit","Material:Cotton Blend|Fit:Slim|Care:Machine Wash Cold|Weight:180 GSM"
+003,Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for all-day wear.",89.99,119.99,25,jeans,Blue Black,Blue:45 Black:35,28:10 30:15 32:20 34:15 36:10,"Stretch Denim|5-Pocket Design|Reinforced Stitching|Fade Resistant","Material:98% Cotton 2% Elastane|Fit:Straight|Rise:Mid|Wash:Dark Blue"`;
 
     useEffect(() => {
         loadProducts();
@@ -111,6 +120,58 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                 images: [imageUrl]
             };
 
+            // Check if SKU is provided and if we have uploaded images for it
+            if (formData.sku && uploadedImageMap[formData.sku]) {
+                const skuImages = uploadedImageMap[formData.sku];
+
+                // Check if product has color variants
+                if (formData.colors && formData.colors.length > 0) {
+                    // Product has colors - map color-specific images
+                    const colorImages = {};
+
+                    formData.colors.forEach(color => {
+                        const colorKey = color;
+                        const colorKeyLower = color.toLowerCase();
+
+                        // Try exact match first, then case-insensitive
+                        if (skuImages[colorKey]) {
+                            colorImages[color] = skuImages[colorKey];
+                        } else if (skuImages[colorKeyLower]) {
+                            colorImages[color] = skuImages[colorKeyLower];
+                        } else {
+                            // Check case-insensitive in all uploaded colors
+                            const foundColor = Object.keys(skuImages).find(
+                                key => key.toLowerCase() === colorKeyLower
+                            );
+                            if (foundColor) {
+                                colorImages[color] = skuImages[foundColor];
+                            }
+                        }
+                    });
+
+                    if (Object.keys(colorImages).length > 0) {
+                        productData.colorImages = colorImages;
+                        // Set primary images to first color's images
+                        const firstColor = formData.colors[0];
+                        productData.images = colorImages[firstColor] || [imageUrl];
+                        productData.image = productData.images[0] || imageUrl;
+                    }
+                } else {
+                    // No color variants - use default images
+                    if (skuImages['default']) {
+                        productData.images = skuImages['default'];
+                        productData.image = skuImages['default'][0];
+                    } else {
+                        // Fallback: use first available color's images
+                        const firstColorKey = Object.keys(skuImages)[0];
+                        if (firstColorKey) {
+                            productData.images = skuImages[firstColorKey];
+                            productData.image = skuImages[firstColorKey][0];
+                        }
+                    }
+                }
+            }
+
             if (editingProduct) {
                 await updateProduct(editingProduct.id, productData);
             } else {
@@ -142,6 +203,7 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
         }
 
         setFormData({
+            sku: product.sku || '',
             name: product.name,
             price: product.price,
             description: product.description,
@@ -164,6 +226,7 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
 
     const resetForm = () => {
         setFormData({
+            sku: '',
             name: '',
             price: '',
             description: '',
@@ -417,9 +480,75 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
             let successCount = 0;
             let errorCount = 0;
             const errors = [];
+            const warnings = [];
 
             for (const product of products) {
                 try {
+                    // Check if product has SKU and if we have uploaded images for it
+                    if (product.sku && uploadedImageMap[product.sku]) {
+                        const skuImages = uploadedImageMap[product.sku];
+
+                        // Check if product has color variants
+                        if (product.colors && product.colors.length > 0) {
+                            // Product has colors - map color-specific images
+                            const colorImages = {};
+                            let totalImagesLinked = 0;
+
+                            product.colors.forEach(color => {
+                                const colorKey = color; // Exact match
+                                const colorKeyLower = color.toLowerCase(); // Case-insensitive fallback
+
+                                // Try exact match first, then case-insensitive
+                                if (skuImages[colorKey]) {
+                                    colorImages[color] = skuImages[colorKey];
+                                    totalImagesLinked += skuImages[colorKey].length;
+                                } else if (skuImages[colorKeyLower]) {
+                                    colorImages[color] = skuImages[colorKeyLower];
+                                    totalImagesLinked += skuImages[colorKeyLower].length;
+                                } else {
+                                    // Check case-insensitive in all uploaded colors
+                                    const foundColor = Object.keys(skuImages).find(
+                                        key => key.toLowerCase() === colorKeyLower
+                                    );
+                                    if (foundColor) {
+                                        colorImages[color] = skuImages[foundColor];
+                                        totalImagesLinked += skuImages[foundColor].length;
+                                    } else {
+                                        warnings.push(`${product.name}: No images found for color "${color}"`);
+                                    }
+                                }
+                            });
+
+                            if (Object.keys(colorImages).length > 0) {
+                                product.colorImages = colorImages;
+                                // Set primary images to first color's images
+                                const firstColor = product.colors[0];
+                                product.images = colorImages[firstColor] || [];
+                                product.image = product.images[0] || '';
+                                warnings.push(`${product.name}: Auto-linked ${totalImagesLinked} images for ${Object.keys(colorImages).length} colors`);
+                            } else {
+                                warnings.push(`${product.name}: SKU ${product.sku} has no matching color images`);
+                            }
+                        } else {
+                            // No color variants - use default images
+                            if (skuImages['default']) {
+                                product.images = skuImages['default'];
+                                product.image = skuImages['default'][0];
+                                warnings.push(`${product.name}: Auto-linked ${skuImages['default'].length} images from SKU ${product.sku}`);
+                            } else {
+                                // Fallback: use first available color's images
+                                const firstColorKey = Object.keys(skuImages)[0];
+                                if (firstColorKey) {
+                                    product.images = skuImages[firstColorKey];
+                                    product.image = skuImages[firstColorKey][0];
+                                    warnings.push(`${product.name}: Auto-linked ${skuImages[firstColorKey].length} images from SKU ${product.sku}`);
+                                }
+                            }
+                        }
+                    } else if (product.sku && !uploadedImageMap[product.sku]) {
+                        warnings.push(`${product.name}: SKU ${product.sku} has no uploaded images`);
+                    }
+
                     const result = await addProduct(product);
                     if (result.success) {
                         successCount++;
@@ -437,6 +566,7 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                 success: successCount > 0,
                 message: `Imported ${successCount} products successfully`,
                 errors: errorCount > 0 ? errors : null,
+                warnings: warnings.length > 0 ? warnings : null,
                 successCount,
                 errorCount
             });
@@ -462,12 +592,160 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
         window.URL.revokeObjectURL(url);
     };
 
+    // Handle bulk image file selection
+    const handleBulkImageSelect = (e) => {
+        const files = Array.from(e.target.files);
+        setBulkImages(files);
+        setImageUploadResult(null);
+    };
+
+    // Extract SKU and color from filename
+    // Supports: 001-1.jpg, 001-Blue-1.jpg, SHIRT-001-White-1.jpg
+    const extractSKUAndColorFromFilename = (filename) => {
+        // Remove extension
+        const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+
+        // Try to match: SKU-COLOR-Number (e.g., 001-Blue-1, SHIRT-001-White-1)
+        const colorMatch = nameWithoutExt.match(/^(.+)-([A-Za-z]+)-(\d+)$/);
+        if (colorMatch) {
+            return {
+                sku: colorMatch[1],
+                color: colorMatch[2],
+                imageNumber: parseInt(colorMatch[3])
+            };
+        }
+
+        // Fallback: SKU-Number (e.g., 001-1) - no color variant
+        const simpleMatch = nameWithoutExt.match(/^(.+)-(\d+)$/);
+        if (simpleMatch) {
+            return {
+                sku: simpleMatch[1],
+                color: null,
+                imageNumber: parseInt(simpleMatch[2])
+            };
+        }
+
+        return null;
+    };
+
+    // Upload bulk images to Firebase Storage
+    const handleBulkImageUpload = async () => {
+        if (bulkImages.length === 0) {
+            setImageUploadResult({ success: false, error: 'Please select images to upload' });
+            return;
+        }
+
+        setUploadingImages(true);
+        setImageUploadProgress(0);
+        setImageUploadResult(null);
+
+        try {
+            const imageMap = {}; // { SKU: { color: [url1, url2, url3, url4] } } or { SKU: [url1, url2, url3, url4] }
+            const uploadedUrls = [];
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            for (let i = 0; i < bulkImages.length; i++) {
+                const file = bulkImages[i];
+                const parsed = extractSKUAndColorFromFilename(file.name);
+
+                if (!parsed || !parsed.sku) {
+                    errorCount++;
+                    errors.push(`${file.name}: Invalid filename format. Use SKU-Number.jpg or SKU-COLOR-Number.jpg`);
+                    continue;
+                }
+
+                try {
+                    // Upload to Firebase Storage with original filename
+                    const storageRef = ref(storage, `products/${file.name}`);
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+
+                    const { sku, color, imageNumber } = parsed;
+
+                    // Initialize SKU entry if doesn't exist
+                    if (!imageMap[sku]) {
+                        imageMap[sku] = {};
+                    }
+
+                    if (color) {
+                        // Color variant: group by color
+                        if (!imageMap[sku][color]) {
+                            imageMap[sku][color] = [];
+                        }
+                        imageMap[sku][color].push({ url, imageNumber });
+                    } else {
+                        // No color variant: store directly
+                        if (!imageMap[sku]['default']) {
+                            imageMap[sku]['default'] = [];
+                        }
+                        imageMap[sku]['default'].push({ url, imageNumber });
+                    }
+
+                    uploadedUrls.push({ sku, color: color || 'default', filename: file.name, url });
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`${file.name}: ${error.message}`);
+                }
+
+                // Update progress
+                setImageUploadProgress(Math.round(((i + 1) / bulkImages.length) * 100));
+            }
+
+            // Sort images within each SKU/color group by image number
+            Object.keys(imageMap).forEach(sku => {
+                Object.keys(imageMap[sku]).forEach(color => {
+                    imageMap[sku][color].sort((a, b) => a.imageNumber - b.imageNumber);
+                    // Extract just URLs
+                    imageMap[sku][color] = imageMap[sku][color].map(item => item.url);
+                });
+            });
+
+            setUploadedImageMap(imageMap);
+
+            // Generate result summary
+            const skuCount = Object.keys(imageMap).length;
+            const skuDetails = [];
+
+            Object.entries(imageMap).forEach(([sku, colorData]) => {
+                Object.entries(colorData).forEach(([color, urls]) => {
+                    skuDetails.push({
+                        sku,
+                        color: color === 'default' ? 'No color variant' : color,
+                        imageCount: urls.length,
+                        complete: urls.length === 4
+                    });
+                });
+            });
+
+            setImageUploadResult({
+                success: successCount > 0,
+                message: `Uploaded ${successCount} images for ${skuCount} products`,
+                successCount,
+                errorCount,
+                errors: errorCount > 0 ? errors : null,
+                skuDetails,
+                imageMap
+            });
+
+        } catch (error) {
+            setImageUploadResult({ success: false, error: error.message });
+        } finally {
+            setUploadingImages(false);
+        }
+    };
+
     return (
         <div className="admin-dashboard">
             <div className="container">
                 <div className="admin-header">
                     <h1>Manage Products</h1>
                     <div className="header-actions">
+                        <button className="btn btn-outline" onClick={() => setShowBulkImageUpload(true)}>
+                            📤 Upload Images
+                        </button>
                         <button className="btn btn-outline" onClick={() => setShowBulkImport(true)}>
                             📥 Bulk Import
                         </button>
@@ -558,6 +836,23 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                                         />
                                     </div>
 
+                                    <div className="form-group">
+                                        <label className="form-label">SKU (Stock Keeping Unit)</label>
+                                        <input
+                                            type="text"
+                                            name="sku"
+                                            className="form-input"
+                                            value={formData.sku}
+                                            onChange={handleChange}
+                                            placeholder="e.g., 001, SHIRT-001, DBS-JEAN-01"
+                                        />
+                                        <small style={{ color: '#6B7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                            💡 Used to link bulk-uploaded images (e.g., 001-Blue-1.jpg)
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">Category *</label>
                                         <select
@@ -818,6 +1113,118 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                 )}
 
                 {/* Bulk Import Modal */}
+
+                {/* Bulk Image Upload Modal */}
+                {showBulkImageUpload && (
+                    <div className="modal-backdrop" onClick={() => { setShowBulkImageUpload(false); setBulkImages([]); setImageUploadResult(null); }}>
+                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2>📤 Bulk Image Upload</h2>
+                                <button className="modal-close" onClick={() => { setShowBulkImageUpload(false); setBulkImages([]); setImageUploadResult(null); }}>
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="bulk-import-content">
+                                <div className="info-section">
+                                    <h3>📋 Image Naming Guide:</h3>
+                                    <p><strong>Format:</strong> SKU-ImageNumber.jpg or SKU-COLOR-ImageNumber.jpg</p>
+                                    <p><strong>Examples:</strong></p>
+                                    <ul style={{ marginLeft: '2rem', marginBottom: '1rem' }}>
+                                        <li><strong>Simple (No colors):</strong></li>
+                                        <li style={{ marginLeft: '1rem' }}><code>001-1.jpg, 001-2.jpg, 001-3.jpg, 001-4.jpg</code> → Product SKU: 001</li>
+                                        <li style={{ marginTop: '0.5rem' }}><strong>With Color Variants:</strong></li>
+                                        <li style={{ marginLeft: '1rem' }}><code>001-Blue-1.jpg, 001-Blue-2.jpg, 001-Blue-3.jpg, 001-Blue-4.jpg</code></li>
+                                        <li style={{ marginLeft: '1rem' }}><code>001-White-1.jpg, 001-White-2.jpg, 001-White-3.jpg, 001-White-4.jpg</code></li>
+                                        <li style={{ marginLeft: '1rem' }}><code>001-Black-1.jpg, 001-Black-2.jpg, 001-Black-3.jpg, 001-Black-4.jpg</code></li>
+                                        <li style={{ marginTop: '0.5rem' }}><strong>Advanced:</strong></li>
+                                        <li style={{ marginLeft: '1rem' }}><code>SHIRT-001-Red-1.jpg, SHIRT-001-Red-2.jpg, ...</code></li>
+                                    </ul>
+                                    <p style={{ color: '#2563eb', fontWeight: 600 }}>💡 Tip: Upload 4 images per color variant for best results</p>
+                                    <p style={{ color: '#dc2626', fontWeight: 600, marginTop: '0.5rem' }}>⚠️ Images will be linked to products during CSV import using the SKU field</p>
+                                </div>
+
+                                <div className="upload-section">
+                                    <label className="file-upload-label">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={handleBulkImageSelect}
+                                            className="file-input-hidden"
+                                        />
+                                        <span>📁 Select Images (Multiple)</span>
+                                    </label>
+                                    {bulkImages.length > 0 && (
+                                        <p style={{ marginTop: '1rem', color: '#16a34a', fontWeight: 600 }}>
+                                            ✅ {bulkImages.length} images selected
+                                        </p>
+                                    )}
+                                </div>
+
+                                {uploadingImages && (
+                                    <div className="progress-section">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: `${imageUploadProgress}%` }}></div>
+                                        </div>
+                                        <p>{imageUploadProgress}% Complete</p>
+                                    </div>
+                                )}
+
+                                <button
+                                    className="btn btn-primary btn-full"
+                                    onClick={handleBulkImageUpload}
+                                    disabled={uploadingImages || bulkImages.length === 0}
+                                >
+                                    {uploadingImages ? '⏳ Uploading...' : '🚀 Upload Images'}
+                                </button>
+
+                                {imageUploadResult && (
+                                    <div className={`import-result ${imageUploadResult.success ? 'success' : 'error'}`}>
+                                        {imageUploadResult.success ? (
+                                            <>
+                                                <h4>✅ {imageUploadResult.message}</h4>
+                                                {imageUploadResult.skuDetails && (
+                                                    <>
+                                                        <p><strong>📦 Product Summary:</strong></p>
+                                                        <ul className="error-list">
+                                                            {imageUploadResult.skuDetails.map((item, i) => (
+                                                                <li key={i} style={{ color: item.complete ? '#16a34a' : '#ea580c' }}>
+                                                                    {item.complete ? '✅' : '⚠️'} SKU {item.sku} - {item.color}: {item.imageCount}/4 images
+                                                                    {!item.complete && ' (Incomplete)'}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                        <p style={{ marginTop: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px' }}>
+                                                            💡 <strong>Next Step:</strong> Go to "Bulk Import" and upload your CSV with the <code>sku</code> column.
+                                                            Products will automatically link to these images!
+                                                        </p>
+                                                    </>
+                                                )}
+                                                {imageUploadResult.errorCount > 0 && (
+                                                    <>
+                                                        <p><strong>⚠️ {imageUploadResult.errorCount} errors:</strong></p>
+                                                        <ul className="error-list">
+                                                            {imageUploadResult.errors.slice(0, 5).map((err, i) => (
+                                                                <li key={i}>{err}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <h4>❌ Upload Failed</h4>
+                                                <p>{imageUploadResult.error}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {showBulkImport && (
                     <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); }}>
                         <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
@@ -902,6 +1309,19 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                                         {importResult.success ? (
                                             <>
                                                 <h4>✅ {importResult.message}</h4>
+                                                {importResult.warnings && (
+                                                    <>
+                                                        <p><strong>ℹ️ Image Linking Info:</strong></p>
+                                                        <ul className="error-list" style={{ color: '#2563eb' }}>
+                                                            {importResult.warnings.slice(0, 10).map((warn, i) => (
+                                                                <li key={i}>{warn}</li>
+                                                            ))}
+                                                            {importResult.warnings.length > 10 && (
+                                                                <li>... and {importResult.warnings.length - 10} more</li>
+                                                            )}
+                                                        </ul>
+                                                    </>
+                                                )}
                                                 {importResult.errorCount > 0 && (
                                                     <>
                                                         <p><strong>⚠️ {importResult.errorCount} failed:</strong></p>

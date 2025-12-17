@@ -102,6 +102,15 @@ export const CartProvider = ({ children }) => {
         );
     };
 
+    const getCartQuantity = (productId, size, color) => {
+        const item = cart.find(
+            item => item.id === productId &&
+                item.selectedSize === size &&
+                item.selectedColor === color
+        );
+        return item ? item.quantity : 0;
+    };
+
     const value = {
         cart,
         addToCart,
@@ -111,6 +120,7 @@ export const CartProvider = ({ children }) => {
         getCartTotal,
         getCartCount,
         isInCart,
+        getCartQuantity,
         cartCount: getCartCount()
     };
 
