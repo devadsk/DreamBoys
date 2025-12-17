@@ -237,9 +237,19 @@ export const createOrder = async (orderData) => {
 export const getUserOrders = async (userId) => {
     try {
         const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+
+        // Simple query (no composite index needed)
+        const q = query(ordersRef, where('userId', '==', userId));
         const snapshot = await getDocs(q);
         const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Client-side sort by createdAt desc
+        orders.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.date);
+            const dateB = new Date(b.createdAt || b.date);
+            return dateB - dateA;
+        });
+
         return { success: true, data: orders };
     } catch (error) {
         return { success: false, error: error.message };

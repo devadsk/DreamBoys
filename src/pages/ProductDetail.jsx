@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getProduct, getProducts, getProductReviews } from '../firebase/firebaseService';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getProduct, getProducts, getProductReviews, addReview, deleteReview } from '../firebase/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import InlineLoader from '../components/InlineLoader';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { currentUser } = useAuth();
+    const { addToCart } = useCart();
+    const { addToWishlist } = useWishlist();
+
     const [product, setProduct] = useState(null);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [reviews, setReviews] = useState([]);
@@ -22,6 +28,12 @@ const ProductDetail = () => {
     const [showQuantity, setShowQuantity] = useState(false);
     const [activeAccordion, setActiveAccordion] = useState('description'); // 'description', 'shipping', or null
 
+    // Review form states
+    const [showReviewForm, setShowReviewForm] = useState(false);
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState('');
+    const [submittingReview, setSubmittingReview] = useState(false);
+
     useEffect(() => {
         loadProduct();
         window.scrollTo(0, 0);
@@ -33,10 +45,50 @@ const ProductDetail = () => {
         if (result.success && result.data) {
             const productData = result.data;
             setProduct(productData);
-            if (productData.sizes?.length > 0) setSelectedSize(productData.sizes[0]);
+
+            // Set initial color and size
+            if (productData.colors?.length > 0) {
+                const firstColor = productData.colors[0];
+                setSelectedColor(firstColor);
+
+                // Set size available for this color
+                const availableSizes = getAvailableSizes(productData, firstColor);
+                if (availableSizes.length > 0) setSelectedSize(availableSizes[0]);
+            } else if (productData.sizes?.length > 0) {
+                // Products without color variants
+                setSelectedSize(productData.sizes[0]);
+            }
+
             loadRelatedProducts(productData.category);
             loadReviews(id);
         }
+    };
+
+    const getAvailableSizes = (prod, color) => {
+        if (!prod || !prod.colorSizeStock) return prod?.sizes || ['S', 'M', 'L', 'XL'];
+
+        // If color specified, check stock for that color
+        if (color && prod.colorSizeStock[color]) {
+            return Object.keys(prod.colorSizeStock[color]).filter(size => prod.colorSizeStock[color][size] > 0);
+        }
+
+        // Fallback for simple stock (key 'default')
+        if (prod.colorSizeStock['default']) {
+            return Object.keys(prod.colorSizeStock['default']).filter(size => prod.colorSizeStock['default'][size] > 0);
+        }
+
+        return prod.sizes || []; // Fallback
+    };
+
+    // Helper function for color hex codes (from Wishlist.jsx)
+    const getColorHex = (name) => {
+        const colors = {
+            black: '#000', white: '#fff', red: '#dc2626', blue: '#2563eb',
+            green: '#16a34a', yellow: '#eab308', purple: '#9333ea', pink: '#db2777',
+            gray: '#6b7280', navy: '#1e3a8a', orange: '#ea580c', brown: '#78350f',
+            beige: '#D4C5B9', khaki: '#C3B091'
+        };
+        return colors[name.toLowerCase()] || '#ccc';
     };
 
     const loadRelatedProducts = async (category) => {
@@ -47,27 +99,155 @@ const ProductDetail = () => {
     };
 
     const loadReviews = async (productId) => {
+        // console.log('Loading reviews for product:', productId);
         const result = await getProductReviews(productId);
-        if (result.success) setReviews(result.data);
+        // console.log('getProductReviews result:', result);
+
+        if (result.success) {
+            // console.log('Reviews loaded successfully:', result.data);
+            setReviews(result.data);
+        } else {
+            console.error('Failed to load reviews:', result.error);
+            setReviews([]);
+        }
+    };
+
+    const handleDeleteReview = async (reviewId) => {
+        if (!window.confirm('Are you sure you want to delete this review?')) {
+            return;
+        }
+
+        try {
+            const result = await deleteReview(reviewId, id);
+
+            if (result.success) {
+                alert('Review deleted successfully');
+                await loadReviews(id);
+                // Optionally reload product if rating aggregation is on product document
+                // await loadProduct(); 
+            } else {
+                alert('Error deleting review: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error deleting review: ' + error.message);
+        }
+    };
+
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+
+        if (!currentUser) {
+            alert('Please login to submit a review');
+            return;
+        }
+
+        if (!reviewComment.trim()) {
+            alert('Please write a review comment');
+            return;
+        }
+
+        setSubmittingReview(true);
+
+        try {
+            const reviewData = {
+                productId: id,
+                userId: currentUser.uid,
+                userName: currentUser.displayName || currentUser.email,
+                rating: reviewRating,
+                comment: reviewComment.trim()
+            };
+
+            const result = await addReview(reviewData);
+
+            if (result.success) {
+                // Clear form
+                setReviewComment('');
+                setReviewRating(5);
+                setShowReviewForm(false);
+
+                // Show success message
+                alert('Review submitted successfully! Thank you for your feedback.');
+
+                // Wait for Firestore to update, then reload
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await loadReviews(id);
+                // await loadProduct();
+            } else {
+                alert('Error submitting review: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error submitting review: ' + error.message);
+        } finally {
+            setSubmittingReview(false);
+        }
     };
 
     const handleAddToCart = () => {
-        if (!selectedSize && product.sizes?.length > 0) {
+        if (!selectedSize) {
             alert('Please select a size');
             return;
         }
-        setShowQuantity(true);
+
+        // Use the current quantity state which might be > 1 if user increased it before adding
+        const qtyToAdd = quantity;
+        addToCart(product, selectedSize, selectedColor, qtyToAdd);
+        navigate('/cart');
+    };
+
+    const handleAddToWishlist = () => {
+        addToWishlist(product);
+        navigate('/wishlist');
     };
 
     const toggleAccordion = (section) => {
         setActiveAccordion(activeAccordion === section ? null : section);
     };
 
+    const handleColorSelect = (color) => {
+        setSelectedColor(color);
+        // Reset size if current size isn't available in new color
+        const newAvailableSizes = getAvailableSizes(product, color);
+        if (!newAvailableSizes.includes(selectedSize)) {
+            setSelectedSize(newAvailableSizes[0] || '');
+        }
+    };
+
+    // Calculate Stock
+    const getStockLevel = () => {
+        if (!product || !product.colorSizeStock) return 0;
+
+        // Matrix mode
+        if (selectedColor && product.colorSizeStock[selectedColor]) {
+            return product.colorSizeStock[selectedColor][selectedSize] || 0;
+        }
+
+        // Simple mode
+        if (product.colorSizeStock['default']) {
+            return product.colorSizeStock['default'][selectedSize] || 0;
+        }
+
+        return 0;
+    };
+
+    const stockLevel = getStockLevel();
+
     if (!product) return <InlineLoader message="Loading..." />;
 
     const productImages = product.images || (product.image ? [product.image] : []);
-    const averageRating = product.rating || 4.5; // Default for demo matches reference
-    const totalReviews = reviews.length || 50;   // Default for demo matches reference
+    const availableSizes = getAvailableSizes(product, selectedColor);
+
+    // Calculate rating from reviews
+    const calculateAverageRating = () => {
+        if (reviews.length === 0) return product.rating || 0;
+        const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+        return (sum / reviews.length).toFixed(1);
+    };
+
+    const averageRating = calculateAverageRating();
+    const totalReviews = reviews.length;
+
+    // Helper to get count of stars for bar chart
+    const getStarCount = (star) => reviews.filter(r => Math.round(r.rating) === star).length;
 
     return (
         <div className="product-detail-page">
@@ -116,11 +296,29 @@ const ProductDetail = () => {
                             <span>Order in <strong>02:30:25</strong> to get next day delivery</span>
                         </div>
 
+                        {/* Colors Component */}
+                        {product.colors && product.colors.length > 0 && (
+                            <div className="selection-area">
+                                <div className="selection-label">Select Color: {selectedColor}</div>
+                                <div className="product-colors">
+                                    {product.colors.map((color, idx) => (
+                                        <span
+                                            key={idx}
+                                            className={`color-dot ${selectedColor === color ? 'selected' : ''}`}
+                                            style={{ backgroundColor: getColorHex(color) }}
+                                            title={color}
+                                            onClick={() => handleColorSelect(color)}
+                                        ></span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Size Selector */}
                         <div className="selection-area">
                             <div className="selection-label">Select Size</div>
                             <div className="size-pills">
-                                {(product.sizes || ['S', 'M', 'L', 'XL', 'XXL']).map(size => (
+                                {availableSizes.length > 0 ? availableSizes.map(size => (
                                     <button
                                         key={size}
                                         className={`size-pill-btn ${selectedSize === size ? 'selected' : ''}`}
@@ -128,28 +326,56 @@ const ProductDetail = () => {
                                     >
                                         {size}
                                     </button>
-                                ))}
+                                )) : (
+                                    <p className="no-stock-msg">Out of Stock for this color</p>
+                                )}
                             </div>
+
+                            {/* Stock Indicator */}
+                            {selectedSize && (
+                                <div className={`stock-indicator ${stockLevel <= 5 ? 'low-stock' : ''}`}>
+                                    {stockLevel > 0 ? `${stockLevel} items left` : 'Out of Stock'}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Quantity (Hidden initially) */}
-                        {showQuantity && (
+                        {/* Quantity (Hidden initially, but logic requested to consider quantity on add) */}
+                        {/* Modified: Always show quantity or show on size select? 
+                            User requirement: "also when add to cart clicked , consider the quantity also"
+                            To support this better, maybe we should show quantity selector always or after size select.
+                            The current logic shows it after "Add to Cart" clicked first time (which was just setting showQuantity=true).
+                            But now "Add to Cart" navigates away. So we should probably let user set quantity beforehand or 
+                            if they click "Add to Cart", it adds 1 (default) and goes to cart.
+                            
+                            Let's make quantity selector visible if size is selected? Or just allow user to add 1 and then update in cart.
+                            However, the code `setShowQuantity(true)` in handleAddToCart was preventing immediate add.
+                            Updated logic: `handleAddToCart` now adds immediately.
+                            So `showQuantity` state might be redundant if we want typical ecommerce flow.
+                            Let's keep the Quantity selector visible if a size is selected, so they can choose > 1.
+                        */}
+
+                        {(selectedSize || showQuantity) && (
                             <div className="quantity-area">
                                 <div className="quantity-label">Quantity</div>
                                 <div className="quantity-stepper">
                                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</button>
                                     <span>{quantity}</span>
-                                    <button onClick={() => setQuantity(quantity + 1)}>+</button>
+                                    <button onClick={() => setQuantity(Math.min(quantity + 1, stockLevel))}>+</button>
                                 </div>
                             </div>
                         )}
 
                         {/* Action Buttons */}
                         <div className="cart-actions">
-                            <button className="add-cart-btn-black" onClick={handleAddToCart}>
-                                {showQuantity ? 'Update Cart' : 'Add to Cart'}
+                            <button
+                                className="add-cart-btn-black"
+                                onClick={handleAddToCart}
+                                disabled={stockLevel === 0}
+                                style={{ opacity: stockLevel === 0 ? 0.5 : 1, cursor: stockLevel === 0 ? 'not-allowed' : 'pointer' }}
+                            >
+                                {stockLevel > 0 ? 'Add to Cart' : 'Out of Stock'}
                             </button>
-                            <button className="wishlist-btn-outline">♡</button>
+                            <button className="wishlist-btn-outline" onClick={handleAddToWishlist}>♡</button>
                         </div>
 
                         {/* Accordions */}
@@ -166,9 +392,6 @@ const ProductDetail = () => {
                                 {activeAccordion === 'description' && (
                                     <div className="accordion-body">
                                         <p>{product.description}</p>
-                                        <p style={{ marginTop: '10px', color: '#666' }}>
-                                            Loose-fit sweatshirt hoodie in medium weight cotton-blend fabric with a generous, but not oversized silhouette. Jersey-lined, drawstring hood, dropped shoulders, long sleeves, and a kangaroo pocket. Wide ribbing at cuffs and hem. Soft, brushed inside.
-                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -221,52 +444,141 @@ const ProductDetail = () => {
                     </div>
                 </div>
 
-                {/* Rating & Reviews Section - Below Fold */}
+                {/* Rating & Reviews Section */}
                 <div className="reviews-container-ref">
-                    <h2 className="reviews-heading">Rating & Reviews</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 className="reviews-heading">Rating & Reviews</h2>
+                        {currentUser && !showReviewForm && (
+                            <button
+                                className="add-review-btn"
+                                style={{ padding: '8px 16px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: 'pointer' }}
+                                onClick={() => setShowReviewForm(true)}
+                            >
+                                Write a Review
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Review Form */}
+                    {showReviewForm && (
+                        <div className="review-form-container" style={{ marginBottom: '20px', padding: '20px', border: '1px solid #eee' }}>
+                            <h3>Write your review</h3>
+                            <form onSubmit={handleSubmitReview}>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px' }}>Rating:</label>
+                                    <div style={{ fontSize: '24px', cursor: 'pointer' }}>
+                                        {[1, 2, 3, 4, 5].map(star => (
+                                            <span
+                                                key={star}
+                                                onClick={() => setReviewRating(star)}
+                                                style={{ color: star <= reviewRating ? '#ffc107' : '#e4e5e9', marginRight: '5px' }}
+                                            >
+                                                ★
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px' }}>Comment:</label>
+                                    <textarea
+                                        value={reviewComment}
+                                        onChange={(e) => setReviewComment(e.target.value)}
+                                        placeholder="What did you like or dislike?"
+                                        style={{ width: '100%', padding: '10px', minHeight: '100px', border: '1px solid #ddd' }}
+                                        required
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        type="submit"
+                                        disabled={submittingReview}
+                                        style={{ padding: '10px 20px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: submittingReview ? 'not-allowed' : 'pointer' }}
+                                    >
+                                        {submittingReview ? 'Submitting...' : 'Submit Review'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReviewForm(false)}
+                                        style={{ padding: '10px 20px', backgroundColor: '#fff', color: '#000', border: '1px solid #000', cursor: 'pointer' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
 
                     <div className="reviews-content-grid">
                         {/* Left: Big Rating */}
                         <div className="rating-summary-box">
                             <div className="big-rating-number">
-                                4.5 <span className="small-total">/ 5</span>
+                                {averageRating} <span className="small-total">/ 5</span>
                             </div>
                             <div className="rating-bars">
-                                {[5, 4, 3, 2, 1].map((star, i) => (
-                                    <div key={star} className="rating-bar-row">
-                                        <span className="star-label">★ {star}</span>
-                                        <div className="bar-bg">
-                                            <div className="bar-fill" style={{ width: i === 0 ? '90%' : i === 1 ? '20%' : '5%' }}></div>
+                                {[5, 4, 3, 2, 1].map((star) => {
+                                    const count = getStarCount(star);
+                                    const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                                    return (
+                                        <div key={star} className="rating-bar-row">
+                                            <span className="star-label">★ {star}</span>
+                                            <div className="bar-bg">
+                                                <div className="bar-fill" style={{ width: `${percentage}%` }}></div>
+                                            </div>
+                                            <span style={{ fontSize: '12px', color: '#666', marginLeft: '5px' }}>{count}</span>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
-                            <div className="review-count-text">({totalReviews} New Reviews)</div>
+                            <div className="review-count-text">({totalReviews} Reviews)</div>
                         </div>
 
-                        {/* Right: Review Slider Card */}
-                        <div className="review-slider-area">
-                            <div className="review-testimonial-card">
-                                <div className="reviewer-header">
-                                    <div className="reviewer-avatar-circle">
-                                        <img src="https://i.pravatar.cc/150?u=alex" alt="Alex" />
-                                    </div>
-                                    <div className="reviewer-meta">
-                                        <h4>Alex Mathio</h4>
-                                        <div className="reviewer-stars">★ ★ ★ ★ ★</div>
-                                    </div>
-                                    <div className="review-date-right">13 Oct 2024</div>
+                        {/* Right: Review List (formerly Slider Card) */}
+                        <div className="review-list-area" style={{ flex: 1 }}>
+                            {reviews.length > 0 ? (
+                                <div className="reviews-list" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {reviews.map((review) => (
+                                        <div key={review.id} className="review-card-item" style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px' }}>
+                                            <div className="reviewer-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div className="reviewer-avatar-circle" style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#ddd' }}>
+                                                        <img
+                                                            src={`https://ui-avatars.com/api/?name=${review.userName || 'User'}&background=random`}
+                                                            alt={review.userName}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h4 style={{ margin: 0 }}>{review.userName}</h4>
+                                                        <div className="reviewer-stars" style={{ color: '#ffc107' }}>
+                                                            {'★'.repeat(Math.round(review.rating))}{'☆'.repeat(5 - Math.round(review.rating))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div className="review-date-right" style={{ fontSize: '12px', color: '#888' }}>
+                                                        {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                                                    </div>
+                                                    {currentUser && currentUser.uid === review.userId && (
+                                                        <button
+                                                            onClick={() => handleDeleteReview(review.id)}
+                                                            style={{ marginTop: '5px', color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="review-text-body" style={{ margin: 0, color: '#444' }}>
+                                                "{review.comment}"
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
-                                <p className="review-text-body">
-                                    "NextGen's dedication to sustainability and ethical practices resonates strongly with today's consumers, positioning the brand as a responsible choice in the fashion world."
-                                </p>
-                                <div className="slider-controls">
-                                    <div className="slider-bar">
-                                        <div className="slider-progress" style={{ width: '40%' }}></div>
-                                    </div>
-                                    <button className="next-review-btn"></button>
+                            ) : (
+                                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                    <p>No reviews yet. Be the first to review this product!</p>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -282,7 +594,7 @@ const ProductDetail = () => {
                                 </div>
                                 <div className="related-info-box">
                                     <h3>{rel.name}</h3>
-                                    <div className="related-rating">★ 4.5/5</div>
+                                    <div className="related-rating">★ {rel.rating ? parseFloat(rel.rating).toFixed(1) : '0.0'}/5</div>
                                     <div className="related-price">₹{rel.price}</div>
                                 </div>
                             </Link>

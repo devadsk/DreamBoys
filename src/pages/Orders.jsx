@@ -1,29 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getUserOrders } from '../firebase/firebaseService';
+import InlineLoader from '../components/InlineLoader';
 import './Orders.css';
 
 const Orders = () => {
-    // Mock orders (replace with actual data from Firebase)
-    const orders = [
-        {
-            id: 'ORD-001',
-            date: '2024-12-01',
-            status: 'delivered',
-            total: 159.97,
-            items: [
-                { name: 'Classic White Shirt', quantity: 2, price: 49.99 },
-                { name: 'Slim Fit Jeans', quantity: 1, price: 79.99 }
-            ]
-        },
-        {
-            id: 'ORD-002',
-            date: '2024-11-28',
-            status: 'shipped',
-            total: 199.99,
-            items: [
-                { name: 'Leather Jacket', quantity: 1, price: 199.99 }
-            ]
-        }
-    ];
+    const { currentUser } = useAuth();
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            if (currentUser) {
+                setLoading(true);
+                const result = await getUserOrders(currentUser.uid);
+                if (result.success) {
+                    setOrders(result.data);
+                } else {
+                    console.error("Failed to fetch orders:", result.error);
+                }
+                setLoading(false);
+            } else {
+                setLoading(false);
+            }
+        };
+
+        fetchOrders();
+    }, [currentUser]);
 
     const getStatusClass = (status) => {
         switch (status) {
@@ -33,6 +36,16 @@ const Orders = () => {
             default: return '';
         }
     };
+
+    if (loading) {
+        return (
+            <div className="orders-page">
+                <div className="container" style={{ minHeight: '60vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <InlineLoader message="Loading your orders..." />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="orders-page">
@@ -50,7 +63,7 @@ const Orders = () => {
                                 <div className="order-header">
                                     <div>
                                         <h3>Order #{order.id}</h3>
-                                        <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
+                                        <p className="order-date">{new Date(order.createdAt || order.date).toLocaleDateString()}</p>
                                     </div>
                                     <span className={`order-status ${getStatusClass(order.status)}`}>
                                         {order.status}
@@ -75,7 +88,7 @@ const Orders = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
