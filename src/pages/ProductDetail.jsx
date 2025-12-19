@@ -187,10 +187,20 @@ const ProductDetail = () => {
             alert('Please select a size');
             return;
         }
+        const selectedSku = `${product.id}-${selectedSize}-${selectedColor}`.toUpperCase();
+
 
         // Use the current quantity state which might be > 1 if user increased it before adding
         const qtyToAdd = quantity;
-        addToCart(product, selectedSize, selectedColor, qtyToAdd);
+        addToCart({
+            productId: product.id,
+            sku: selectedSku,
+            name: product.name,
+            price: product.price,
+            size: selectedSize,
+            color: selectedColor,
+            quantity
+        });
         navigate('/cart');
     };
 

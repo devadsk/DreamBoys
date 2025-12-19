@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getTestimonials, getCategories } from '../firebase/firebaseService';
+import videoBg from '../assets/9ev41aksydrma0cv67rb96tvtg_result_.mp4';
+import logoImg from '../assets/logo.jpg';
 import './Home.css';
 
 const Home = () => {
@@ -18,6 +20,8 @@ const Home = () => {
     useEffect(() => {
         loadContent();
     }, []);
+
+
 
     const loadContent = async () => {
         // Load testimonials - only from database, no fallback
@@ -40,6 +44,20 @@ const Home = () => {
 
     return (
         <div className="home-page">
+            {/* Video Intro Section */}
+            <section className="video-intro">
+                <div className="video-background">
+                    <video autoPlay loop muted playsInline>
+                        <source src={videoBg} type="video/mp4" />
+                    </video>
+                </div>
+                <div className="video-overlay"></div>
+                <div className="video-content">
+                    <img src={logoImg} alt="Dream Boys Logo" className="video-logo" />
+                    <h1 className="video-text">DREAM BOYS</h1>
+                </div>
+            </section>
+
             {/* Hero Section with Parallax */}
             <section className="hero-premium">
                 <div className="hero-background" style={{ transform: `translateY(${scrollY * 0.5}px)` }}>

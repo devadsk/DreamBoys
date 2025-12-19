@@ -42,19 +42,13 @@ const AdminProducts = () => {
     const [csvData, setCsvData] = useState('');
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
+    const [importFolderFiles, setImportFolderFiles] = useState([]); // Array of files from folder upload
 
-    // Bulk image upload states
-    const [showBulkImageUpload, setShowBulkImageUpload] = useState(false);
-    const [bulkImages, setBulkImages] = useState([]);
-    const [uploadingImages, setUploadingImages] = useState(false);
-    const [imageUploadProgress, setImageUploadProgress] = useState(0);
-    const [uploadedImageMap, setUploadedImageMap] = useState({}); // { SKU: [url1, url2, url3, url4] }
-    const [imageUploadResult, setImageUploadResult] = useState(null);
-
-    const sampleCSV = `sku,name,description,price,originalPrice,discount,category,colors,colorStock,sizeStock,features,specifications
-001,Premium White Shirt,"Classic formal white shirt made from 100% premium cotton. Perfect for office wear and formal occasions.",59.99,79.99,25,shirts,White Blue Pink,White:30 Blue:25 Pink:20,XS:5 S:15 M:20 L:10 XL:5,"Premium Quality Cotton|Wrinkle Resistant|Easy Care|Comfortable Fit","Material:100% Cotton|Fit:Regular|Care:Machine Wash|Origin:Made in USA"
-002,Casual Blue T-Shirt,"Comfortable cotton t-shirt for everyday wear. Soft fabric with modern fit.",29.99,39.99,25,tshirts,Blue Red Green Black,Blue:40 Red:30 Green:25 Black:50,S:25 M:30 L:25 XL:15 XXL:5,"100% Cotton|Breathable Fabric|Durable Construction|Modern Fit","Material:Cotton Blend|Fit:Slim|Care:Machine Wash Cold|Weight:180 GSM"
-003,Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for all-day wear.",89.99,119.99,25,jeans,Blue Black,Blue:45 Black:35,28:10 30:15 32:20 34:15 36:10,"Stretch Denim|5-Pocket Design|Reinforced Stitching|Fade Resistant","Material:98% Cotton 2% Elastane|Fit:Straight|Rise:Mid|Wash:Dark Blue"`;
+    const sampleCSV = `handle,title,category,sku,size,color,price,stock,image1,image2,image3,image4
+shirt-men,Men Shirt,Shirt,SHIRT-S-BLACK,S,Black,1299,4,products/shirt/SHIRT-S-BLACK-1.jpg,products/shirt/SHIRT-S-BLACK-2.jpg,products/shirt/SHIRT-S-BLACK-3.jpg,products/shirt/SHIRT-S-BLACK-4.jpg
+shirt-men,Men Shirt,Shirt,SHIRT-M-BLACK,M,Black,1299,10,products/shirt/SHIRT-M-BLACK-1.jpg,products/shirt/SHIRT-M-BLACK-2.jpg,products/shirt/SHIRT-M-BLACK-3.jpg,products/shirt/SHIRT-M-BLACK-4.jpg
+shirt-men,Men Shirt,Shirt,SHIRT-M-BLUE,M,Blue,1299,6,products/shirt/SHIRT-M-BLUE-1.jpg,products/shirt/SHIRT-M-BLUE-2.jpg,products/shirt/SHIRT-M-BLUE-3.jpg,products/shirt/SHIRT-M-BLUE-4.jpg
+shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE-1.jpg,products/shirt/SHIRT-L-BLUE-2.jpg,products/shirt/SHIRT-L-BLUE-3.jpg,products/shirt/SHIRT-L-BLUE-4.jpg`;
 
     useEffect(() => {
         loadProducts();
@@ -303,156 +297,56 @@ const AdminProducts = () => {
         return total;
     };
 
-    // CSV Parser
-    const parseCSV = (csv) => {
-        const parseCSVLine = (line) => {
-            const result = [];
+    // Folder Helper
+    const handleFolderSelect = (e) => {
+        const files = Array.from(e.target.files);
+        setImportFolderFiles(files);
+    };
+
+    // Helper to upload a single file
+    const uploadSingleImage = async (file) => {
+        const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        return getDownloadURL(storageRef);
+    };
+
+    // CSV Parser for New Format
+    const parseNewCSV = (csv) => {
+        // Remove BOM if present
+        const content = csv.startsWith('\uFEFF') ? csv.slice(1) : csv;
+        const lines = content.trim().split(/\r?\n/);
+
+        // Header: handle,title,category,sku,size,color,price,stock,image1,image2,image3,image4
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+        console.log("CSV Headers found:", headers);
+
+        const data = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+
+            const values = [];
             let current = '';
             let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                const nextChar = line[i + 1];
-
+            for (let j = 0; j < lines[i].length; j++) {
+                const char = lines[i][j];
                 if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        current += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
+                    inQuotes = !inQuotes;
                 } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
+                    values.push(current.trim().replace(/^"|"$/g, '')); // Remove surrounding quotes from values too
                     current = '';
                 } else {
                     current += char;
                 }
             }
-            result.push(current.trim());
-            return result;
-        };
+            values.push(current.trim().replace(/^"|"$/g, ''));
 
-        const lines = csv.trim().split(/\r?\n/);
-        const headers = parseCSVLine(lines[0]);
-        const products = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-
-            const values = parseCSVLine(lines[i]);
-            if (values.length !== headers.length) {
-                console.warn(`Line ${i + 1}: Expected ${headers.length} values, got ${values.length}. Skipping.`);
-                continue;
-            }
-
-            const product = {};
-            headers.forEach((header, index) => {
-                const value = values[index];
-
-                // Skip rating and reviewCount - these should only come from users
-                if (header === 'rating' || header === 'reviewCount') {
-                    return; // Ignore these columns completely
-                }
-
-                if (header === 'price' || header === 'originalPrice') {
-                    product[header] = parseFloat(value) || 0;
-                } else if (header === 'discount') {
-                    product[header] = parseInt(value) || 0;
-                } else if (header === 'colorSizeStock') {
-                    // New combined color-size stock format
-                    // Format: "Blue:S:10 M:5 L:8|Red:S:8 M:12 L:6"
-                    const colorSizeStock = {};
-                    let totalStock = 0;
-                    const allSizes = new Set();
-                    const allColors = [];
-
-                    const colorGroups = value.split('|').filter(g => g.trim());
-                    colorGroups.forEach(group => {
-                        const parts = group.trim().split(':');
-                        if (parts.length < 2) return;
-
-                        const color = parts[0].trim();
-                        allColors.push(color);
-                        colorSizeStock[color] = {};
-
-                        // Parse size:quantity pairs for this color
-                        for (let i = 1; i < parts.length; i += 2) {
-                            if (i + 1 < parts.length) {
-                                const size = parts[i].trim();
-                                const qty = parseInt(parts[i + 1]) || 0;
-                                colorSizeStock[color][size] = qty;
-                                allSizes.add(size);
-                                totalStock += qty;
-                            }
-                        }
-                    });
-
-                    product.colorSizeStock = colorSizeStock;
-                    product.colors = allColors;
-                    product.sizes = Array.from(allSizes);
-                    product.stock = totalStock;
-                } else if (header === 'sizeStock') {
-                    // Convert simple sizeStock to colorSizeStock format with 'default' key
-                    const sizeStock = {};
-                    const pairs = value.split(' ').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [size, stock] = pair.split(':');
-                        if (size && stock) {
-                            sizeStock[size.trim()] = parseInt(stock) || 0;
-                        }
-                    });
-                    // Store as colorSizeStock with 'default' key for products without colors
-                    product.colorSizeStock = { 'default': sizeStock };
-                    product.stock = Object.values(sizeStock).reduce((sum, qty) => sum + qty, 0);
-                    product.sizes = Object.keys(sizeStock);
-                    product.colors = []; // No colors for simple stock
-
-                } else if (header === 'colorStock') {
-                    const colorStock = {};
-                    const pairs = value.split(' ').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [color, stock] = pair.split(':');
-                        if (color && stock) {
-                            colorStock[color.trim()] = parseInt(stock) || 0;
-                        }
-                    });
-                    product.colorStock = colorStock;
-                } else if (header === 'colors') {
-                    product[header] = value.split(' ').map(v => v.trim()).filter(v => v);
-                } else if (header === 'images') {
-                    const imageUrls = value.split('|').map(v => v.trim()).filter(v => v);
-                    product[header] = imageUrls;
-                    product.image = imageUrls[0] || '';
-                } else if (header === 'features') {
-                    // Features are pipe-separated
-                    product[header] = value.split('|').map(v => v.trim()).filter(v => v);
-                } else if (header === 'specifications') {
-                    // Specifications are pipe-separated key:value pairs
-                    const specs = {};
-                    const pairs = value.split('|').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [key, val] = pair.split(':');
-                        if (key && val) {
-                            specs[key.trim()] = val.trim();
-                        }
-                    });
-                    product[header] = specs;
-                } else {
-                    product[header] = value;
-                }
+            const row = {};
+            headers.forEach((h, index) => {
+                row[h] = values[index];
             });
-
-            product.createdAt = new Date().toISOString();
-            product.featured = false;
-
-            if (product.name && product.description && product.price && product.category) {
-                products.push(product);
-            } else {
-                console.warn(`Line ${i + 1}: Missing required fields. Skipping.`);
-            }
+            data.push(row);
         }
-
-        return products;
+        return data;
     };
 
     const handleFileUpload = (e) => {
@@ -467,8 +361,19 @@ const AdminProducts = () => {
     };
 
     const handleBulkImport = async () => {
+        console.log("Starting Bulk Import...");
+        console.log("CSV Data Length:", csvData ? csvData.length : 0);
+        console.log("Files Selected:", importFolderFiles.length);
+
         if (!csvData.trim()) {
-            setImportResult({ success: false, error: 'Please upload a CSV file or paste CSV data' });
+            console.error("CSV Data is empty");
+            setImportResult({ success: false, error: 'Please upload a CSV file' });
+            return;
+        }
+
+        if (importFolderFiles.length === 0) {
+            console.error("No files in folder");
+            setImportResult({ success: false, error: 'Please upload the products folder containing images' });
             return;
         }
 
@@ -476,89 +381,128 @@ const AdminProducts = () => {
         setImportResult(null);
 
         try {
-            const products = parseCSV(csvData);
+            console.log("Parsing CSV...");
+            const rows = parseNewCSV(csvData);
+            console.log("Parsed Rows:", rows.length, rows);
+
+            // Group rows by 'handle' (Product)
+            const groups = {};
+            rows.forEach(row => {
+                if (!row.handle) return;
+                if (!groups[row.handle]) groups[row.handle] = [];
+                groups[row.handle].push(row);
+            });
+
+            console.log("Product Groups:", Object.keys(groups));
+
             let successCount = 0;
             let errorCount = 0;
             const errors = [];
             const warnings = [];
 
-            for (const product of products) {
+            // Map relative path -> File object for quick lookup
+            // normalize path: replace backslashes (if any) with forward slashes
+            const fileMap = new Map();
+            importFolderFiles.forEach(file => {
+                const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+                fileMap.set(normalizedPath, file);
+                // Also map just the filename in case user uploaded flat structure or path mismatch
+                fileMap.set(file.name, file);
+            });
+            console.log("File Map Size:", fileMap.size);
+
+            for (const handle of Object.keys(groups)) {
                 try {
-                    // Check if product has SKU and if we have uploaded images for it
-                    if (product.sku && uploadedImageMap[product.sku]) {
-                        const skuImages = uploadedImageMap[product.sku];
+                    const productRows = groups[handle];
+                    const first = productRows[0];
 
-                        // Check if product has color variants
-                        if (product.colors && product.colors.length > 0) {
-                            // Product has colors - map color-specific images
-                            const colorImages = {};
-                            let totalImagesLinked = 0;
+                    // Process Variants & Stock
+                    const colorSizeStock = {};
+                    const colorImages = {};
+                    const allSizes = new Set();
 
-                            product.colors.forEach(color => {
-                                const colorKey = color; // Exact match
-                                const colorKeyLower = color.toLowerCase(); // Case-insensitive fallback
+                    // Iterate variants
+                    // We need to async upload images here
 
-                                // Try exact match first, then case-insensitive
-                                if (skuImages[colorKey]) {
-                                    colorImages[color] = skuImages[colorKey];
-                                    totalImagesLinked += skuImages[colorKey].length;
-                                } else if (skuImages[colorKeyLower]) {
-                                    colorImages[color] = skuImages[colorKeyLower];
-                                    totalImagesLinked += skuImages[colorKeyLower].length;
+                    // We track which colors we've already processed images for to avoid duplicates
+                    const processedColorsForImages = new Set();
+
+                    for (const row of productRows) {
+                        const color = row.color || 'Default';
+                        const size = row.size;
+                        const stock = parseInt(row.stock) || 0;
+
+                        // Stock Logic
+                        if (!colorSizeStock[color]) colorSizeStock[color] = {};
+                        colorSizeStock[color][size] = stock;
+                        allSizes.add(size);
+
+                        // Image Logic
+                        // Only upload images for a color once (assuming all rows for same color have same images)
+                        if (!processedColorsForImages.has(color)) {
+                            // Extract image columns
+                            // Support up to 4 images
+                            const imagePaths = [row.image1, row.image2, row.image3, row.image4].filter(p => p && p.trim());
+
+                            const imageUrls = [];
+
+                            for (const path of imagePaths) {
+                                // Try to find the file
+                                // The CSV path: "products/shirt/SHIRT-S-BLACK-1.jpg"
+                                // The file.webkitRelativePath: "products/shirt/SHIRT-S-BLACK-1.jpg" (if "products" folder uploaded)
+
+                                // We try exact match first
+                                let file = fileMap.get(path.trim());
+                                // If not found, try to match by filename if path structure differs
+                                if (!file) {
+                                    const filename = path.split('/').pop();
+                                    file = fileMap.get(filename);
+                                }
+
+                                if (file) {
+                                    const url = await uploadSingleImage(file);
+                                    imageUrls.push(url);
                                 } else {
-                                    // Check case-insensitive in all uploaded colors
-                                    const foundColor = Object.keys(skuImages).find(
-                                        key => key.toLowerCase() === colorKeyLower
-                                    );
-                                    if (foundColor) {
-                                        colorImages[color] = skuImages[foundColor];
-                                        totalImagesLinked += skuImages[foundColor].length;
-                                    } else {
-                                        warnings.push(`${product.name}: No images found for color "${color}"`);
-                                    }
+                                    warnings.push(`${handle}: Image not found: ${path}`);
                                 }
-                            });
-
-                            if (Object.keys(colorImages).length > 0) {
-                                product.colorImages = colorImages;
-                                // Set primary images to first color's images
-                                const firstColor = product.colors[0];
-                                product.images = colorImages[firstColor] || [];
-                                product.image = product.images[0] || '';
-                                warnings.push(`${product.name}: Auto-linked ${totalImagesLinked} images for ${Object.keys(colorImages).length} colors`);
-                            } else {
-                                warnings.push(`${product.name}: SKU ${product.sku} has no matching color images`);
                             }
-                        } else {
-                            // No color variants - use default images
-                            if (skuImages['default']) {
-                                product.images = skuImages['default'];
-                                product.image = skuImages['default'][0];
-                                warnings.push(`${product.name}: Auto-linked ${skuImages['default'].length} images from SKU ${product.sku}`);
-                            } else {
-                                // Fallback: use first available color's images
-                                const firstColorKey = Object.keys(skuImages)[0];
-                                if (firstColorKey) {
-                                    product.images = skuImages[firstColorKey];
-                                    product.image = skuImages[firstColorKey][0];
-                                    warnings.push(`${product.name}: Auto-linked ${skuImages[firstColorKey].length} images from SKU ${product.sku}`);
-                                }
+
+                            if (imageUrls.length > 0) {
+                                colorImages[color] = imageUrls;
+                                processedColorsForImages.add(color);
                             }
                         }
-                    } else if (product.sku && !uploadedImageMap[product.sku]) {
-                        warnings.push(`${product.name}: SKU ${product.sku} has no uploaded images`);
                     }
 
-                    const result = await addProduct(product);
-                    if (result.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                        errors.push(`${product.name}: ${result.error}`);
-                    }
-                } catch (error) {
+                    // Constuct Product Data
+                    // Assume 'title', 'category', 'price' are consistent across rows for the handle
+                    const productData = {
+                        name: first.title,
+                        category: first.category ? first.category.toLowerCase() : 'other',
+                        price: parseFloat(first.price) || 0,
+                        description: first.title, // Default description to title as it's not in CSV
+                        colors: Object.keys(colorSizeStock),
+                        sizes: Array.from(allSizes),
+                        colorSizeStock,
+                        colorImages,
+                        stock: Object.values(colorSizeStock).reduce((acc, sizes) =>
+                            acc + Object.values(sizes).reduce((s, q) => s + q, 0), 0
+                        ),
+                        // Primary image
+                        image: Object.values(colorImages)[0]?.[0] || '',
+                        images: Object.values(colorImages)[0] || [], // Default images
+                        rating: 0,
+                        reviewCount: 0,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    await addProduct(productData);
+                    successCount++;
+
+                } catch (err) {
+                    console.error(`Error processing product ${handle}:`, err);
                     errorCount++;
-                    errors.push(`${product.name}: ${error.message}`);
+                    errors.push(`${handle}: ${err.message}`);
                 }
             }
 
@@ -576,7 +520,8 @@ const AdminProducts = () => {
             }
 
         } catch (error) {
-            setImportResult({ success: false, error: error.message });
+            console.error("Bulk Import Fatal Error:", error);
+            setImportResult({ success: false, error: error.message || "Unknown error occurred" });
         } finally {
             setImporting(false);
         }
@@ -592,150 +537,7 @@ const AdminProducts = () => {
         window.URL.revokeObjectURL(url);
     };
 
-    // Handle bulk image file selection
-    const handleBulkImageSelect = (e) => {
-        const files = Array.from(e.target.files);
-        setBulkImages(files);
-        setImageUploadResult(null);
-    };
 
-    // Extract SKU and color from filename
-    // Supports: 001-1.jpg, 001-Blue-1.jpg, SHIRT-001-White-1.jpg
-    const extractSKUAndColorFromFilename = (filename) => {
-        // Remove extension
-        const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-
-        // Try to match: SKU-COLOR-Number (e.g., 001-Blue-1, SHIRT-001-White-1)
-        const colorMatch = nameWithoutExt.match(/^(.+)-([A-Za-z]+)-(\d+)$/);
-        if (colorMatch) {
-            return {
-                sku: colorMatch[1],
-                color: colorMatch[2],
-                imageNumber: parseInt(colorMatch[3])
-            };
-        }
-
-        // Fallback: SKU-Number (e.g., 001-1) - no color variant
-        const simpleMatch = nameWithoutExt.match(/^(.+)-(\d+)$/);
-        if (simpleMatch) {
-            return {
-                sku: simpleMatch[1],
-                color: null,
-                imageNumber: parseInt(simpleMatch[2])
-            };
-        }
-
-        return null;
-    };
-
-    // Upload bulk images to Firebase Storage
-    const handleBulkImageUpload = async () => {
-        if (bulkImages.length === 0) {
-            setImageUploadResult({ success: false, error: 'Please select images to upload' });
-            return;
-        }
-
-        setUploadingImages(true);
-        setImageUploadProgress(0);
-        setImageUploadResult(null);
-
-        try {
-            const imageMap = {}; // { SKU: { color: [url1, url2, url3, url4] } } or { SKU: [url1, url2, url3, url4] }
-            const uploadedUrls = [];
-            let successCount = 0;
-            let errorCount = 0;
-            const errors = [];
-
-            for (let i = 0; i < bulkImages.length; i++) {
-                const file = bulkImages[i];
-                const parsed = extractSKUAndColorFromFilename(file.name);
-
-                if (!parsed || !parsed.sku) {
-                    errorCount++;
-                    errors.push(`${file.name}: Invalid filename format. Use SKU-Number.jpg or SKU-COLOR-Number.jpg`);
-                    continue;
-                }
-
-                try {
-                    // Upload to Firebase Storage with original filename
-                    const storageRef = ref(storage, `products/${file.name}`);
-                    await uploadBytes(storageRef, file);
-                    const url = await getDownloadURL(storageRef);
-
-                    const { sku, color, imageNumber } = parsed;
-
-                    // Initialize SKU entry if doesn't exist
-                    if (!imageMap[sku]) {
-                        imageMap[sku] = {};
-                    }
-
-                    if (color) {
-                        // Color variant: group by color
-                        if (!imageMap[sku][color]) {
-                            imageMap[sku][color] = [];
-                        }
-                        imageMap[sku][color].push({ url, imageNumber });
-                    } else {
-                        // No color variant: store directly
-                        if (!imageMap[sku]['default']) {
-                            imageMap[sku]['default'] = [];
-                        }
-                        imageMap[sku]['default'].push({ url, imageNumber });
-                    }
-
-                    uploadedUrls.push({ sku, color: color || 'default', filename: file.name, url });
-                    successCount++;
-                } catch (error) {
-                    errorCount++;
-                    errors.push(`${file.name}: ${error.message}`);
-                }
-
-                // Update progress
-                setImageUploadProgress(Math.round(((i + 1) / bulkImages.length) * 100));
-            }
-
-            // Sort images within each SKU/color group by image number
-            Object.keys(imageMap).forEach(sku => {
-                Object.keys(imageMap[sku]).forEach(color => {
-                    imageMap[sku][color].sort((a, b) => a.imageNumber - b.imageNumber);
-                    // Extract just URLs
-                    imageMap[sku][color] = imageMap[sku][color].map(item => item.url);
-                });
-            });
-
-            setUploadedImageMap(imageMap);
-
-            // Generate result summary
-            const skuCount = Object.keys(imageMap).length;
-            const skuDetails = [];
-
-            Object.entries(imageMap).forEach(([sku, colorData]) => {
-                Object.entries(colorData).forEach(([color, urls]) => {
-                    skuDetails.push({
-                        sku,
-                        color: color === 'default' ? 'No color variant' : color,
-                        imageCount: urls.length,
-                        complete: urls.length === 4
-                    });
-                });
-            });
-
-            setImageUploadResult({
-                success: successCount > 0,
-                message: `Uploaded ${successCount} images for ${skuCount} products`,
-                successCount,
-                errorCount,
-                errors: errorCount > 0 ? errors : null,
-                skuDetails,
-                imageMap
-            });
-
-        } catch (error) {
-            setImageUploadResult({ success: false, error: error.message });
-        } finally {
-            setUploadingImages(false);
-        }
-    };
 
     return (
         <div className="admin-dashboard">
@@ -743,9 +545,6 @@ const AdminProducts = () => {
                 <div className="admin-header">
                     <h1>Manage Products</h1>
                     <div className="header-actions">
-                        <button className="btn btn-outline" onClick={() => setShowBulkImageUpload(true)}>
-                            📤 Upload Images
-                        </button>
                         <button className="btn btn-outline" onClick={() => setShowBulkImport(true)}>
                             📥 Bulk Import
                         </button>
@@ -1114,162 +913,26 @@ const AdminProducts = () => {
 
                 {/* Bulk Import Modal */}
 
-                {/* Bulk Image Upload Modal */}
-                {showBulkImageUpload && (
-                    <div className="modal-backdrop" onClick={() => { setShowBulkImageUpload(false); setBulkImages([]); setImageUploadResult(null); }}>
-                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
-                            <div className="modal-header">
-                                <h2>📤 Bulk Image Upload</h2>
-                                <button className="modal-close" onClick={() => { setShowBulkImageUpload(false); setBulkImages([]); setImageUploadResult(null); }}>
-                                    ✕
-                                </button>
-                            </div>
 
-                            <div className="bulk-import-content">
-                                <div className="info-section">
-                                    <h3>📋 Image Naming Guide:</h3>
-                                    <p><strong>Format:</strong> SKU-ImageNumber.jpg or SKU-COLOR-ImageNumber.jpg</p>
-                                    <p><strong>Examples:</strong></p>
-                                    <ul style={{ marginLeft: '2rem', marginBottom: '1rem' }}>
-                                        <li><strong>Simple (No colors):</strong></li>
-                                        <li style={{ marginLeft: '1rem' }}><code>001-1.jpg, 001-2.jpg, 001-3.jpg, 001-4.jpg</code> → Product SKU: 001</li>
-                                        <li style={{ marginTop: '0.5rem' }}><strong>With Color Variants:</strong></li>
-                                        <li style={{ marginLeft: '1rem' }}><code>001-Blue-1.jpg, 001-Blue-2.jpg, 001-Blue-3.jpg, 001-Blue-4.jpg</code></li>
-                                        <li style={{ marginLeft: '1rem' }}><code>001-White-1.jpg, 001-White-2.jpg, 001-White-3.jpg, 001-White-4.jpg</code></li>
-                                        <li style={{ marginLeft: '1rem' }}><code>001-Black-1.jpg, 001-Black-2.jpg, 001-Black-3.jpg, 001-Black-4.jpg</code></li>
-                                        <li style={{ marginTop: '0.5rem' }}><strong>Advanced:</strong></li>
-                                        <li style={{ marginLeft: '1rem' }}><code>SHIRT-001-Red-1.jpg, SHIRT-001-Red-2.jpg, ...</code></li>
-                                    </ul>
-                                    <p style={{ color: '#2563eb', fontWeight: 600 }}>💡 Tip: Upload 4 images per color variant for best results</p>
-                                    <p style={{ color: '#dc2626', fontWeight: 600, marginTop: '0.5rem' }}>⚠️ Images will be linked to products during CSV import using the SKU field</p>
-                                </div>
-
-                                <div className="upload-section">
-                                    <label className="file-upload-label">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            onChange={handleBulkImageSelect}
-                                            className="file-input-hidden"
-                                        />
-                                        <span>📁 Select Images (Multiple)</span>
-                                    </label>
-                                    {bulkImages.length > 0 && (
-                                        <p style={{ marginTop: '1rem', color: '#16a34a', fontWeight: 600 }}>
-                                            ✅ {bulkImages.length} images selected
-                                        </p>
-                                    )}
-                                </div>
-
-                                {uploadingImages && (
-                                    <div className="progress-section">
-                                        <div className="progress-bar">
-                                            <div className="progress-fill" style={{ width: `${imageUploadProgress}%` }}></div>
-                                        </div>
-                                        <p>{imageUploadProgress}% Complete</p>
-                                    </div>
-                                )}
-
-                                <button
-                                    className="btn btn-primary btn-full"
-                                    onClick={handleBulkImageUpload}
-                                    disabled={uploadingImages || bulkImages.length === 0}
-                                >
-                                    {uploadingImages ? '⏳ Uploading...' : '🚀 Upload Images'}
-                                </button>
-
-                                {imageUploadResult && (
-                                    <div className={`import-result ${imageUploadResult.success ? 'success' : 'error'}`}>
-                                        {imageUploadResult.success ? (
-                                            <>
-                                                <h4>✅ {imageUploadResult.message}</h4>
-                                                {imageUploadResult.skuDetails && (
-                                                    <>
-                                                        <p><strong>📦 Product Summary:</strong></p>
-                                                        <ul className="error-list">
-                                                            {imageUploadResult.skuDetails.map((item, i) => (
-                                                                <li key={i} style={{ color: item.complete ? '#16a34a' : '#ea580c' }}>
-                                                                    {item.complete ? '✅' : '⚠️'} SKU {item.sku} - {item.color}: {item.imageCount}/4 images
-                                                                    {!item.complete && ' (Incomplete)'}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                        <p style={{ marginTop: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px' }}>
-                                                            💡 <strong>Next Step:</strong> Go to "Bulk Import" and upload your CSV with the <code>sku</code> column.
-                                                            Products will automatically link to these images!
-                                                        </p>
-                                                    </>
-                                                )}
-                                                {imageUploadResult.errorCount > 0 && (
-                                                    <>
-                                                        <p><strong>⚠️ {imageUploadResult.errorCount} errors:</strong></p>
-                                                        <ul className="error-list">
-                                                            {imageUploadResult.errors.slice(0, 5).map((err, i) => (
-                                                                <li key={i}>{err}</li>
-                                                            ))}
-                                                        </ul>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <h4>❌ Upload Failed</h4>
-                                                <p>{imageUploadResult.error}</p>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {showBulkImport && (
-                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); }}>
+                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); setImportFolderFiles([]); }}>
                         <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>📦 Bulk Import Products</h2>
-                                <button className="modal-close" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); }}>
+                                <button className="modal-close" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); setImportFolderFiles([]); }}>
                                     ✕
                                 </button>
                             </div>
 
                             <div className="bulk-import-content">
                                 <div className="info-section">
-                                    <h3>📋 CSV Format Guide:</h3>
-                                    <p><strong>Required Columns:</strong> name, description, price, category</p>
-                                    <p><strong>Stock Options (choose ONE):</strong></p>
-                                    <ul style={{ marginLeft: '2rem', marginBottom: '1rem' }}>
-                                        <li><strong>colorSizeStock</strong> - Combined color-size inventory (RECOMMENDED)</li>
-                                        <li><strong>colors + sizeStock</strong> - Separate color list and size inventory</li>
-                                    </ul>
-                                    <p><strong>Optional Columns:</strong> originalPrice, discount, colorStock, images, features, specifications</p>
-                                    <p style={{ color: '#dc2626', fontWeight: 600, marginTop: '0.5rem' }}>⚠️ Note: Rating and reviews are NOT included in bulk import - they can only be added by customers.</p>
-
-                                    <div className="format-details">
-                                        <h4>Column Formats:</h4>
-                                        <ul>
-                                            <li><strong>name:</strong> Product name (e.g., Premium White Shirt)</li>
-                                            <li><strong>description:</strong> Product description (use quotes if contains commas)</li>
-                                            <li><strong>price:</strong> Decimal number (e.g., 59.99)</li>
-                                            <li><strong>category:</strong> Product category (shirts, tshirts, jeans, jackets)</li>
-                                            <li style={{ background: '#f0f4ff', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem' }}>
-                                                <strong>colorSizeStock (RECOMMENDED):</strong> Combined color-size inventory<br />
-                                                Format: <code>Color:Size:Qty Size:Qty|Color:Size:Qty Size:Qty</code><br />
-                                                Example: <code>"Blue:S:10 M:15 L:20 XL:8|Red:S:8 M:12 L:15 XL:5"</code><br />
-                                                <em>This format links each color to its specific size availability</em>
-                                            </li>
-                                            <li><strong>colors:</strong> Space-separated color names (e.g., White Blue Black Red)</li>
-                                            <li><strong>colorStock:</strong> Space-separated color:quantity pairs (e.g., White:30 Blue:25 Black:20)</li>
-                                            <li><strong>sizeStock:</strong> Space-separated size:quantity pairs (e.g., XS:5 S:15 M:20 L:10 XL:5)</li>
-                                            <li><strong>images:</strong> Pipe-separated URLs (e.g., url1.jpg|url2.jpg|url3.jpg)</li>
-                                            <li><strong>features:</strong> Pipe-separated product highlights (e.g., Premium Cotton|Wrinkle Resistant)</li>
-                                            <li><strong>specifications:</strong> Pipe-separated key:value pairs (e.g., Material:Cotton|Fit:Regular)</li>
-                                            <li><strong>originalPrice:</strong> Original price before discount (e.g., 79.99)</li>
-                                            <li><strong>discount:</strong> Discount percentage as integer (e.g., 25 for 25% off)</li>
-                                        </ul>
-                                    </div>
+                                    <h3>📋 Instructions:</h3>
+                                    <ol style={{ marginLeft: '1.5rem', marginBottom: '1rem', lineHeight: '1.6' }}>
+                                        <li>Prepare your CSV file with columns: <code>handle, title, category, sku, size, color, price, stock, image1, image2...</code></li>
+                                        <li>Prepare a folder containing all your product images.</li>
+                                        <li>Ensure image paths in CSV match the files in the folder (e.g., <code>products/shirt/img1.jpg</code>).</li>
+                                    </ol>
 
                                     <button className="btn btn-sm btn-outline" onClick={downloadSample}>
                                         📥 Download Sample CSV
@@ -1277,60 +940,67 @@ const AdminProducts = () => {
                                 </div>
 
                                 <div className="upload-section">
-                                    <label className="file-upload-label">
-                                        <input
-                                            type="file"
-                                            accept=".csv"
-                                            onChange={handleFileUpload}
-                                            className="file-input-hidden"
-                                        />
-                                        <span>📁 Choose CSV File</span>
-                                    </label>
-                                    <p className="or-text">Or paste CSV data below:</p>
-                                    <textarea
-                                        className="csv-textarea"
-                                        value={csvData}
-                                        onChange={(e) => setCsvData(e.target.value)}
-                                        placeholder="Paste CSV data here..."
-                                        rows="8"
-                                    />
+                                    {/* 1. CSV Upload */}
+                                    <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                        <label className="form-label">1. Upload CSV File</label>
+                                        <label className="file-upload-label">
+                                            <input
+                                                type="file"
+                                                accept=".csv"
+                                                onChange={handleFileUpload}
+                                                className="file-input-hidden"
+                                            />
+                                            <span>
+                                                {csvData ? '✅ CSV Loaded' : '📄 Choose CSV File'}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* 2. Folder Upload */}
+                                    <div className="form-group">
+                                        <label className="form-label">2. Upload Images Folder</label>
+                                        <label className="file-upload-label">
+                                            <input
+                                                type="file"
+                                                webkitdirectory=""
+                                                directory=""
+                                                multiple
+                                                onChange={handleFolderSelect}
+                                                className="file-input-hidden"
+                                            />
+                                            <span>
+                                                {importFolderFiles.length > 0
+                                                    ? `✅ ${importFolderFiles.length} files selected`
+                                                    : '📁 Choose Images Folder'}
+                                            </span>
+                                        </label>
+                                    </div>
+
                                 </div>
 
                                 <button
                                     className="btn btn-primary btn-full"
                                     onClick={handleBulkImport}
-                                    disabled={importing || !csvData.trim()}
+                                    disabled={importing || !csvData.trim() || importFolderFiles.length === 0}
+                                    style={{ marginTop: '1.5rem' }}
                                 >
-                                    {importing ? '⏳ Importing...' : '🚀 Import Products'}
+                                    {importing ? '⏳ Importing & Uploading...' : '🚀 Start Import'}
                                 </button>
 
                                 {importResult && (
-                                    <div className={`import-result ${importResult.success ? 'success' : 'error'}`}>
+                                    <div className={`import-result ${importResult.success ? 'success' : 'error'}`} style={{ marginTop: '1rem' }}>
                                         {importResult.success ? (
                                             <>
                                                 <h4>✅ {importResult.message}</h4>
                                                 {importResult.warnings && (
-                                                    <>
-                                                        <p><strong>ℹ️ Image Linking Info:</strong></p>
-                                                        <ul className="error-list" style={{ color: '#2563eb' }}>
-                                                            {importResult.warnings.slice(0, 10).map((warn, i) => (
-                                                                <li key={i}>{warn}</li>
-                                                            ))}
-                                                            {importResult.warnings.length > 10 && (
-                                                                <li>... and {importResult.warnings.length - 10} more</li>
-                                                            )}
-                                                        </ul>
-                                                    </>
+                                                    <ul className="error-list" style={{ color: '#ea580c' }}>
+                                                        {importResult.warnings.map((warn, i) => <li key={i}>⚠️ {warn}</li>)}
+                                                    </ul>
                                                 )}
                                                 {importResult.errorCount > 0 && (
-                                                    <>
-                                                        <p><strong>⚠️ {importResult.errorCount} failed:</strong></p>
-                                                        <ul className="error-list">
-                                                            {importResult.errors.slice(0, 5).map((err, i) => (
-                                                                <li key={i}>{err}</li>
-                                                            ))}
-                                                        </ul>
-                                                    </>
+                                                    <ul className="error-list">
+                                                        {importResult.errors.map((err, i) => <li key={i}>❌ {err}</li>)}
+                                                    </ul>
                                                 )}
                                             </>
                                         ) : (

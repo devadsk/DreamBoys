@@ -24,6 +24,8 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { firebaseConfig } from './config';
+import { runTransaction } from "firebase/firestore";
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -177,10 +179,60 @@ export const getProducts = async () => {
 export const getProduct = async (productId) => {
     try {
         const productDoc = await getDoc(doc(db, 'products', productId));
-        if (productDoc.exists()) {
-            return { success: true, data: { id: productDoc.id, ...productDoc.data() } };
+        if (!productDoc.exists()) {
+            return { success: false, error: 'Product not found' };
         }
-        return { success: false, error: 'Product not found' };
+
+        const productData = productDoc.data();
+
+        // Check if product data already has complete information (new format from bulk import)
+        const hasCompleteData = productData.colors && productData.sizes &&
+            productData.colorSizeStock && productData.colorImages;
+
+        if (hasCompleteData) {
+            // Use data from main document (new format)
+            return {
+                success: true,
+                data: {
+                    id: productId,
+                    ...productData
+                }
+            };
+        }
+
+        // Fallback: Build from variants subcollection (old format)
+        const variantsSnap = await getDocs(
+            collection(db, 'products', productId, 'variants')
+        );
+
+        const variants = variantsSnap.docs.map(d => d.data());
+
+        const colors = [...new Set(variants.map(v => v.color))];
+        const sizes = [...new Set(variants.map(v => v.size))];
+
+        const colorSizeStock = {};
+        const colorImages = {};
+
+        variants.forEach(v => {
+            if (!colorSizeStock[v.color]) colorSizeStock[v.color] = {};
+            colorSizeStock[v.color][v.size] = v.stock;
+
+            if (!colorImages[v.color]) {
+                colorImages[v.color] = v.images;
+            }
+        });
+
+        return {
+            success: true,
+            data: {
+                id: productId,
+                ...productData,
+                colors,
+                sizes,
+                colorSizeStock,
+                colorImages
+            }
+        };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -189,15 +241,76 @@ export const getProduct = async (productId) => {
 // Add product (Admin only)
 export const addProduct = async (productData) => {
     try {
-        const docRef = await addDoc(collection(db, 'products'), {
-            ...productData,
+        const {
+            name,
+            category,
+            price,
+            description,
+            colorSizeStock,
+            colorImages = {},
+            colors = [],
+            sizes = [],
+            image = '',
+            images = [],
+            stock = 0
+        } = productData;
+
+        // Calculate derived fields if not provided
+        const finalColors = colors.length > 0 ? colors : Object.keys(colorSizeStock);
+        const finalSizes = sizes.length > 0 ? sizes : [...new Set(
+            Object.values(colorSizeStock).flatMap(sizeMap => Object.keys(sizeMap))
+        )];
+        const finalStock = stock > 0 ? stock : Object.values(colorSizeStock).reduce((acc, sizes) =>
+            acc + Object.values(sizes).reduce((s, q) => s + q, 0), 0
+        );
+        const finalImage = image || Object.values(colorImages)[0]?.[0] || '';
+        const finalImages = images.length > 0 ? images : Object.values(colorImages)[0] || [];
+
+        // Create product doc with ALL fields
+        const productRef = await addDoc(collection(db, 'products'), {
+            name,
+            category,
+            price,
+            description,
+            colors: finalColors,
+            sizes: finalSizes,
+            colorSizeStock,
+            colorImages,
+            image: finalImage,
+            images: finalImages,
+            stock: finalStock,
+            rating: 0,
+            reviewCount: 0,
             createdAt: new Date().toISOString()
         });
-        return { success: true, id: docRef.id };
+
+        // Create variants subcollection for detailed tracking
+        for (const [color, sizes] of Object.entries(colorSizeStock)) {
+            for (const [size, stock] of Object.entries(sizes)) {
+                if (stock <= 0) continue;
+
+                const sku = `${productRef.id}-${size}-${color}`.toUpperCase();
+
+                await setDoc(
+                    doc(db, 'products', productRef.id, 'variants', sku),
+                    {
+                        sku,
+                        size,
+                        color,
+                        stock,
+                        images: colorImages[color] || [],
+                        createdAt: new Date().toISOString()
+                    }
+                );
+            }
+        }
+
+        return { success: true, id: productRef.id };
     } catch (error) {
         return { success: false, error: error.message };
     }
 };
+
 
 // Update product (Admin only)
 export const updateProduct = async (productId, productData) => {
@@ -528,4 +641,27 @@ export const markReviewHelpful = async (reviewId) => {
     } catch (error) {
         return { success: false, error: error.message };
     }
+};
+
+
+export const decrementVariantStock = async (productId, sku, qty) => {
+    const variantRef = doc(db, 'products', productId, 'variants', sku);
+
+    return await runTransaction(db, async (transaction) => {
+        const variantSnap = await transaction.get(variantRef);
+
+        if (!variantSnap.exists()) {
+            throw new Error("Variant not found");
+        }
+
+        const currentStock = variantSnap.data().stock;
+
+        if (currentStock < qty) {
+            throw new Error("Insufficient stock");
+        }
+
+        transaction.update(variantRef, {
+            stock: currentStock - qty
+        });
+    });
 };
