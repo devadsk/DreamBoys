@@ -18,9 +18,9 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
+    getDocs,
     query,
     where,
-    getDocs,
     orderBy
 } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
@@ -379,16 +379,86 @@ export const deleteProduct = async (productId) => {
     }
 };
 
-// Create order
+// Create order with stock deduction
 export const createOrder = async (orderData) => {
     try {
-        const docRef = await addDoc(collection(db, 'orders'), {
-            ...orderData,
-            createdAt: new Date().toISOString(),
-            status: 'pending'
+        return await runTransaction(db, async (transaction) => {
+            // 1. Read all product documents first
+            const productReads = [];
+            for (const item of orderData.items) {
+                const productRef = doc(db, 'products', item.id);
+                productReads.push({ ref: productRef, item });
+            }
+
+            const productDocs = await Promise.all(
+                productReads.map(async (pr) => {
+                    const docSnap = await transaction.get(pr.ref);
+                    return { ...pr, doc: docSnap };
+                })
+            );
+
+            // 2. Check stock and calculate updates
+            for (const { doc, item } of productDocs) {
+                if (!doc.exists()) {
+                    throw new Error(`Product ${item.name} no longer exists.`);
+                }
+
+                const data = doc.data();
+                const color = item.selectedColor || 'default';
+                const size = item.selectedSize || 'default';
+
+                // Locate stock
+                let currentStock = 0;
+                let stockPathConfirmed = false;
+
+                // Check complex structure: colorSizeStock[color][size]
+                if (data.colorSizeStock && data.colorSizeStock[color] && data.colorSizeStock[color][size] !== undefined) {
+                    currentStock = Number(data.colorSizeStock[color][size]);
+                    stockPathConfirmed = true;
+                } else if (data.stock !== undefined) {
+                    // Fallback to simple stock if complex structure not found (though items should have it)
+                    currentStock = Number(data.stock);
+                } else {
+                    // If we can't find stock, assume 0 to be safe, or allow if we don't track it?
+                    // Assuming we track it:
+                    throw new Error(`Stock information missing for ${item.name}`);
+                }
+
+                if (currentStock < item.quantity) {
+                    throw new Error(`Insufficient stock for ${item.name} (${item.selectedColor}/${item.selectedSize}). Available: ${currentStock}`);
+                }
+
+                // 3. Queue update
+                let updates = {};
+                if (stockPathConfirmed) {
+                    updates[`colorSizeStock.${color}.${size}`] = currentStock - item.quantity;
+                } else {
+                    updates['stock'] = currentStock - item.quantity;
+                }
+
+                transaction.update(doc.ref, updates);
+            }
+
+            // 4. Create Order
+            const ordersRef = collection(db, 'orders');
+            const newOrderRef = doc(ordersRef); // Auto-ID
+            const orderNumber = 'ORD-' + Date.now();
+
+            const newOrder = {
+                ...orderData,
+                orderNumber,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                id: newOrderRef.id // Save ID inside doc too if needed
+            };
+
+            transaction.set(newOrderRef, newOrder);
+
+            return { success: true, orderId: newOrderRef.id, orderNumber };
         });
-        return { success: true, id: docRef.id };
+
     } catch (error) {
+        console.error('Error creating order:', error);
         return { success: false, error: error.message };
     }
 };
@@ -711,4 +781,305 @@ export const decrementVariantStock = async (productId, sku, qty) => {
             stock: currentStock - qty
         });
     });
+};
+
+// ===== CART MANAGEMENT FUNCTIONS =====
+
+/**
+ * Save entire cart to Firestore for authenticated user
+ * @param {string} userId - User ID
+ * @param {Array} cartItems - Array of cart items
+ */
+export const saveCartToFirestore = async (userId, cartItems) => {
+    try {
+        // Store cart as a subcollection under user document
+        const cartRef = collection(db, 'users', userId, 'cart');
+
+        // Clear existing cart first
+        const existingCart = await getDocs(cartRef);
+        const deletePromises = existingCart.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+
+        // Add new cart items (filter out undefined values)
+        const addPromises = cartItems.map(item => {
+            const itemKey = `${item.id}-${item.selectedSize}-${item.selectedColor}`;
+
+            // Remove undefined values (Firestore doesn't allow them)
+            const cleanItem = Object.fromEntries(
+                Object.entries(item).filter(([_, value]) => value !== undefined)
+            );
+
+            return setDoc(doc(cartRef, itemKey), {
+                ...cleanItem,
+                addedAt: new Date().toISOString()
+            });
+        });
+
+        await Promise.all(addPromises);
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving cart to Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Get cart from Firestore for authenticated user
+ * @param {string} userId - User ID
+ */
+export const getCartFromFirestore = async (userId) => {
+    try {
+        const cartRef = collection(db, 'users', userId, 'cart');
+        const snapshot = await getDocs(cartRef);
+        const cartItems = snapshot.docs.map(doc => {
+            const data = doc.data();
+            // Remove addedAt from the returned object to keep it clean
+            const { addedAt, ...item } = data;
+            return item;
+        });
+        return { success: true, data: cartItems };
+    } catch (error) {
+        console.error('Error getting cart from Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Update a specific cart item in Firestore
+ * @param {string} userId - User ID
+ * @param {string} itemKey - Item key (productId-size-color)
+ * @param {Object} updates - Fields to update
+ */
+export const updateCartItemInFirestore = async (userId, itemKey, updates) => {
+    try {
+        const itemRef = doc(db, 'users', userId, 'cart', itemKey);
+        await updateDoc(itemRef, updates);
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating cart item in Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Remove a specific cart item from Firestore
+ * @param {string} userId - User ID
+ * @param {string} itemKey - Item key (productId-size-color)
+ */
+export const removeCartItemFromFirestore = async (userId, itemKey) => {
+    try {
+        const itemRef = doc(db, 'users', userId, 'cart', itemKey);
+        await deleteDoc(itemRef);
+        return { success: true };
+    } catch (error) {
+        console.error('Error removing cart item from Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Clear entire cart from Firestore
+ * @param {string} userId - User ID
+ */
+export const clearCartInFirestore = async (userId) => {
+    try {
+        const cartRef = collection(db, 'users', userId, 'cart');
+        const snapshot = await getDocs(cartRef);
+        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        return { success: true };
+    } catch (error) {
+        console.error('Error clearing cart in Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Validate cart items against current stock levels
+ * @param {Array} cartItems - Array of cart items to validate
+ * @returns {Object} - Validation results with stock status for each item
+ */
+export const validateCartStock = async (cartItems) => {
+    try {
+        const validationResults = await Promise.all(
+            cartItems.map(async (item) => {
+                try {
+                    // Get current product data
+                    const productResult = await getProduct(item.id);
+
+                    if (!productResult.success) {
+                        return {
+                            ...item,
+                            stockStatus: 'unavailable',
+                            availableStock: 0,
+                            message: 'Product not found'
+                        };
+                    }
+
+                    const product = productResult.data;
+
+                    // Check stock for specific size/color combination
+                    let availableStock = 0;
+
+                    if (product.colorSizeStock) {
+                        if (item.selectedColor && product.colorSizeStock[item.selectedColor]) {
+                            availableStock = product.colorSizeStock[item.selectedColor][item.selectedSize] || 0;
+                        } else if (product.colorSizeStock['default']) {
+                            availableStock = product.colorSizeStock['default'][item.selectedSize] || 0;
+                        }
+                    }
+
+                    // Determine stock status
+                    let stockStatus = 'available';
+                    let message = '';
+
+                    if (availableStock === 0) {
+                        stockStatus = 'out_of_stock';
+                        message = 'Out of stock';
+                    } else if (availableStock < item.quantity) {
+                        stockStatus = 'insufficient';
+                        message = `Only ${availableStock} available`;
+                    } else if (availableStock <= 5) {
+                        stockStatus = 'low_stock';
+                        message = `Low stock (${availableStock} left)`;
+                    }
+
+                    return {
+                        ...item,
+                        stockStatus,
+                        availableStock,
+                        message
+                    };
+                } catch (error) {
+                    console.error(`Error validating item ${item.id}:`, error);
+                    return {
+                        ...item,
+                        stockStatus: 'error',
+                        availableStock: 0,
+                        message: 'Error checking stock'
+                    };
+                }
+            })
+        );
+
+        return { success: true, data: validationResults };
+    } catch (error) {
+        console.error('Error validating cart stock:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// ===== WISHLIST MANAGEMENT FUNCTIONS =====
+
+/**
+ * Save entire wishlist to Firestore for authenticated user
+ */
+export const saveWishlistToFirestore = async (userId, wishlistItems) => {
+    try {
+        const wishlistRef = collection(db, 'users', userId, 'wishlist');
+        const existingWishlist = await getDocs(wishlistRef);
+        const deletePromises = existingWishlist.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+
+        const addPromises = wishlistItems.map(item => {
+            const cleanItem = Object.fromEntries(
+                Object.entries(item).filter(([_, value]) => value !== undefined)
+            );
+            return setDoc(doc(wishlistRef, item.id), {
+                ...cleanItem,
+                addedAt: new Date().toISOString()
+            });
+        });
+
+        await Promise.all(addPromises);
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving wishlist to Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Get wishlist from Firestore for authenticated user
+ */
+export const getWishlistFromFirestore = async (userId) => {
+    try {
+        const wishlistRef = collection(db, 'users', userId, 'wishlist');
+        const snapshot = await getDocs(wishlistRef);
+        const wishlistItems = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const { addedAt, ...item } = data;
+            return item;
+        });
+        return { success: true, data: wishlistItems };
+    } catch (error) {
+        console.error('Error getting wishlist from Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Clear entire wishlist from Firestore
+ */
+export const clearWishlistInFirestore = async (userId) => {
+    try {
+        const wishlistRef = collection(db, 'users', userId, 'wishlist');
+        const snapshot = await getDocs(wishlistRef);
+        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        return { success: true };
+    } catch (error) {
+        console.error('Error clearing wishlist in Firestore:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+
+// ============================================
+// USER PROFILE & ADDRESS MANAGEMENT
+// ============================================
+
+
+
+// Get saved addresses
+export const getSavedAddresses = async (userId) => {
+    try {
+        const addressesRef = collection(db, 'users', userId, 'addresses');
+        const snapshot = await getDocs(addressesRef);
+        const addresses = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        return { success: true, data: addresses };
+    } catch (error) {
+        console.error('Error getting saved addresses:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Save new address
+export const saveAddress = async (userId, addressData) => {
+    try {
+        const addressesRef = collection(db, 'users', userId, 'addresses');
+        const newAddress = {
+            ...addressData,
+            createdAt: new Date().toISOString()
+        };
+        const docRef = await addDoc(addressesRef, newAddress);
+        return { success: true, id: docRef.id };
+    } catch (error) {
+        console.error('Error saving address:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Delete address
+export const deleteAddress = async (userId, addressId) => {
+    try {
+        await deleteDoc(doc(db, 'users', userId, 'addresses', addressId));
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting address:', error);
+        return { success: false, error: error.message };
+    }
 };

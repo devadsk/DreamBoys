@@ -1,11 +1,28 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 import { motion } from 'framer-motion';
 import './Wishlist.css';
 
 const Wishlist = () => {
-    const { wishlist, removeFromWishlist, clearWishlist } = useWishlist();
+    const navigate = useNavigate();
+    const { wishlist, removeFromWishlist, clearWishlist, moveToCart } = useWishlist();
+    const { addToCart } = useCart();
+    const [selectedVariants, setSelectedVariants] = useState({});
+
+    const handleMoveToCart = (product) => {
+        // Use stored size and color from wishlist
+        const size = product.selectedSize || product.sizes?.[0] || 'M';
+        const color = product.selectedColor || product.colors?.[0] || 'Black';
+        const quantity = 1;
+
+        // Move to cart
+        moveToCart(product, size, color, quantity, addToCart);
+
+        // Navigate to cart
+        navigate('/cart');
+    };
 
     if (wishlist.length === 0) {
         return (
@@ -107,6 +124,13 @@ const Wishlist = () => {
                             </Link>
 
                             <div className="card-actions">
+                                <button
+                                    className="move-to-cart-btn"
+                                    onClick={() => handleMoveToCart(product)}
+                                    disabled={product.stock <= 0}
+                                >
+                                    {product.stock <= 0 ? 'Out of Stock' : 'Move to Cart'}
+                                </button>
                                 <Link to={`/product/${product.id}`} className="view-btn">
                                     View Details
                                 </Link>

@@ -1,4 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import {
+    saveCartToFirestore,
+    getCartFromFirestore,
+    clearCartInFirestore
+} from '../firebase/firebaseService';
 
 const CartContext = createContext();
 
@@ -11,22 +17,72 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+    const { currentUser } = useAuth();
     const [cart, setCart] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
-    // Load cart from localStorage on mount
+    // Load cart when user logs in
     useEffect(() => {
-        const savedCart = localStorage.getItem('dreamboys_cart');
-        if (savedCart) {
-            setCart(JSON.parse(savedCart));
+        loadCart();
+    }, [currentUser]);
+
+    // Save cart whenever it changes (only for authenticated users after initial load)
+    useEffect(() => {
+        if (!isLoading && currentUser && hasLoaded) {
+            syncCartToFirestore();
         }
-    }, []);
+    }, [cart, currentUser, isLoading, hasLoaded]);
 
-    // Save cart to localStorage whenever it changes
-    useEffect(() => {
-        localStorage.setItem('dreamboys_cart', JSON.stringify(cart));
-    }, [cart]);
+    /**
+     * Load cart from Firestore (authenticated users only)
+     */
+    const loadCart = async () => {
+        setIsLoading(true);
 
+        if (currentUser) {
+            console.log('🔄 Loading cart from Firestore for user:', currentUser.uid);
+            const result = await getCartFromFirestore(currentUser.uid);
+
+            if (result.success) {
+                console.log('✅ Cart loaded:', result.data.length, 'items');
+                setCart(result.data);
+            } else {
+                console.error('❌ Error loading cart:', result.error);
+                setCart([]);
+            }
+        } else {
+            // No user logged in - empty cart
+            console.log('👤 No user logged in - cart is empty');
+            setCart([]);
+        }
+
+        setIsLoading(false);
+        setHasLoaded(true);
+    };
+
+    /**
+     * Save cart to Firestore
+     */
+    const syncCartToFirestore = async () => {
+        if (currentUser) {
+            console.log('💾 Saving cart to Firestore:', cart.length, 'items');
+            await saveCartToFirestore(currentUser.uid, cart);
+            console.log('✅ Cart saved to Firestore');
+        }
+    };
+
+    /**
+     * Add item to cart (requires authentication)
+     */
     const addToCart = (product, selectedSize, selectedColor, quantity = 1) => {
+        console.log('🛒 addToCart called with:', { productId: product?.id, selectedSize, selectedColor, quantity, currentUser: currentUser?.uid });
+
+        if (!currentUser) {
+            console.warn('⚠️ Cannot add to cart - user not logged in');
+            return false; // Return false to indicate failure
+        }
+
         setCart(prev => {
             // Check if item with same product, size, and color already exists
             const existingItemIndex = prev.findIndex(
@@ -56,9 +112,16 @@ export const CartProvider = ({ children }) => {
                 }];
             }
         });
+
+        return true; // Return true to indicate success
     };
 
+    /**
+     * Remove item from cart
+     */
     const removeFromCart = (itemId, selectedSize, selectedColor) => {
+        if (!currentUser) return;
+
         setCart(prev => prev.filter(
             item => !(item.id === itemId &&
                 item.selectedSize === selectedSize &&
@@ -66,7 +129,12 @@ export const CartProvider = ({ children }) => {
         ));
     };
 
+    /**
+     * Update item quantity
+     */
     const updateQuantity = (itemId, selectedSize, selectedColor, newQuantity) => {
+        if (!currentUser) return;
+
         if (newQuantity <= 0) {
             removeFromCart(itemId, selectedSize, selectedColor);
             return;
@@ -82,18 +150,33 @@ export const CartProvider = ({ children }) => {
         }));
     };
 
-    const clearCart = () => {
+    /**
+     * Clear entire cart
+     */
+    const clearCart = async () => {
+        if (!currentUser) return;
+
         setCart([]);
+        await clearCartInFirestore(currentUser.uid);
     };
 
+    /**
+     * Get cart total
+     */
     const getCartTotal = () => {
         return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
     };
 
+    /**
+     * Get cart item count
+     */
     const getCartCount = () => {
         return cart.reduce((count, item) => count + item.quantity, 0);
     };
 
+    /**
+     * Check if item is in cart
+     */
     const isInCart = (productId, size, color) => {
         return cart.some(
             item => item.id === productId &&
@@ -102,6 +185,9 @@ export const CartProvider = ({ children }) => {
         );
     };
 
+    /**
+     * Get quantity of specific item in cart
+     */
     const getCartQuantity = (productId, size, color) => {
         const item = cart.find(
             item => item.id === productId &&
@@ -109,6 +195,30 @@ export const CartProvider = ({ children }) => {
                 item.selectedColor === color
         );
         return item ? item.quantity : 0;
+    };
+
+    /**
+     * Move item from cart to wishlist (save for later)
+     */
+    const moveToWishlist = (item, addToWishlistFn) => {
+        if (!currentUser) return;
+
+        // Add to wishlist with size and color from cart item
+        const productData = {
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            originalPrice: item.originalPrice,
+            image: item.image,
+            category: item.category,
+            stock: item.stock
+        };
+
+        // Pass size and color from cart item to wishlist
+        addToWishlistFn(productData, item.selectedSize, item.selectedColor);
+
+        // Remove from cart
+        removeFromCart(item.id, item.selectedSize, item.selectedColor);
     };
 
     const value = {
@@ -121,7 +231,10 @@ export const CartProvider = ({ children }) => {
         getCartCount,
         isInCart,
         getCartQuantity,
-        cartCount: getCartCount()
+        moveToWishlist,
+        cartCount: getCartCount(),
+        isLoading,
+        requiresAuth: true // Flag to indicate cart requires authentication
     };
 
     return (

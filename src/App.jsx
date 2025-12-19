@@ -10,6 +10,7 @@ import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
+import OrderSuccess from './pages/OrderSuccess';
 import Orders from './pages/Orders';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
@@ -75,6 +76,7 @@ function App() {
                                     <Route path="/wishlist" element={<Wishlist />} />
                                     <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
                                     <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
+                                    <Route path="/order-success/:orderId" element={<PrivateRoute><OrderSuccess /></PrivateRoute>} />
                                     <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
                                     <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
 

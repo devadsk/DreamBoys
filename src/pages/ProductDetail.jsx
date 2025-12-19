@@ -12,7 +12,7 @@ const ProductDetail = () => {
     const navigate = useNavigate();
     const { currentUser, userData } = useAuth();
     const { addToCart, getCartQuantity } = useCart();
-    const { addToWishlist } = useWishlist();
+    const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
 
     const [product, setProduct] = useState(null);
     const [relatedProducts, setRelatedProducts] = useState([]);
@@ -183,30 +183,62 @@ const ProductDetail = () => {
     };
 
     const handleAddToCart = () => {
+        console.log('🔵 handleAddToCart triggered');
+
+        // Check if user is logged in
+        if (!currentUser) {
+            console.log('❌ User not logged in, redirecting to login');
+            alert('Please login to add items to your cart');
+            navigate('/login', { state: { from: `/product/${id}` } });
+            return;
+        }
+
         if (!selectedSize) {
             alert('Please select a size');
             return;
         }
-        const selectedSku = `${product.id}-${selectedSize}-${selectedColor}`.toUpperCase();
 
+        // Get the appropriate image (color-specific or default)
+        let productImage;
+        if (product.colorImages && selectedColor && product.colorImages[selectedColor]) {
+            productImage = product.colorImages[selectedColor][0];
+        } else if (product.images && product.images.length > 0) {
+            productImage = product.images[0];
+        } else {
+            productImage = product.image;
+        }
 
-        // Use the current quantity state which might be > 1 if user increased it before adding
-        const qtyToAdd = quantity;
-        addToCart({
-            productId: product.id,
-            sku: selectedSku,
+        // Create product object with all necessary properties
+        const productToAdd = {
+            id: product.id,
             name: product.name,
             price: product.price,
-            size: selectedSize,
-            color: selectedColor,
-            quantity
-        });
+            originalPrice: product.originalPrice,
+            image: productImage,
+            category: product.category,
+            stock: getStockLevel()
+        };
+
+        // Call addToCart with correct parameter order: (product, selectedSize, selectedColor, quantity)
+        addToCart(productToAdd, selectedSize, selectedColor, quantity);
         navigate('/cart');
     };
 
-    const handleAddToWishlist = () => {
-        addToWishlist(product);
-        navigate('/wishlist');
+    const handleToggleWishlist = () => {
+        // Check if user is logged in
+        if (!currentUser) {
+            alert('Please login to add items to your wishlist');
+            navigate('/login', { state: { from: `/product/${id}` } });
+            return;
+        }
+
+        // Toggle: if in wishlist, remove it; otherwise add it
+        if (isInWishlist(product.id)) {
+            removeFromWishlist(product.id);
+        } else {
+            // Add to wishlist with selected size and color
+            addToWishlist(product, selectedSize, selectedColor);
+        }
     };
 
     const toggleAccordion = (section) => {
@@ -417,7 +449,13 @@ const ProductDetail = () => {
                             >
                                 {availableStock > 0 ? 'Add to Cart' : (cartQuantity > 0 ? 'All in Cart' : 'Out of Stock')}
                             </button>
-                            <button className="wishlist-btn-outline" onClick={handleAddToWishlist}>♡</button>
+                            <button
+                                className={`wishlist-btn-outline ${isInWishlist(product.id) ? 'in-wishlist' : ''}`}
+                                onClick={handleToggleWishlist}
+                                title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            >
+                                {isInWishlist(product.id) ? '❤️' : '♡'}
+                            </button>
                         </div>
 
                         {/* Accordions */}

@@ -31,6 +31,23 @@ service cloud.firestore {
       
       // Only admins can delete users
       allow delete: if isAdmin();
+      
+      // ===== USER'S CART SUBCOLLECTION =====
+      match /cart/{itemId} {
+        // Users can only access their own cart
+        allow read, write: if isOwner(userId);
+      }
+      
+      // ===== USER'S WISHLIST SUBCOLLECTION =====
+      match /wishlist/{itemId} {
+        // Users can only access their own wishlist
+        allow read, write: if isOwner(userId);
+      }
+
+      // ===== USER'S ADDRESSES SUBCOLLECTION =====
+      match /addresses/{addressId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
     
     // ===== PRODUCTS COLLECTION =====
@@ -38,8 +55,13 @@ service cloud.firestore {
       // Anyone can read products (public catalog)
       allow read: if true;
       
-      // Only admins can create, update, or delete products
-      allow create, update, delete: if isAdmin();
+      // Only admins can delete products
+      allow create, delete: if isAdmin();
+      
+      // Allow stock updates by authenticated users (for orders)
+      allow update: if isAdmin() || 
+                    (isSignedIn() && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'colorSizeStock', 'updatedAt']));
     }
     
     // ===== REVIEWS COLLECTION =====
