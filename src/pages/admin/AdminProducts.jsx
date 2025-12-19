@@ -38,17 +38,24 @@ const AdminProducts = () => {
     const [newSizeQty, setNewSizeQty] = useState('');
     const [colorsInput, setColorsInput] = useState('');
 
-    // Bulk import states
+    // Bulk import states - NEW WORKFLOW
+    const [importStep, setImportStep] = useState(1); // 1: CSV, 2: Images, 3: Assignment, 4: Processing
     const [csvData, setCsvData] = useState('');
+    const [parsedProducts, setParsedProducts] = useState([]); // Grouped by handle
+    const [uploadedImages, setUploadedImages] = useState([]); // File objects
+    const [imageAssignments, setImageAssignments] = useState({}); // { variantKey: [file1, file2, file3, file4] }
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
-    const [importFolderFiles, setImportFolderFiles] = useState([]); // Array of files from folder upload
+    const [importProgress, setImportProgress] = useState(0);
 
-    const sampleCSV = `handle,title,category,sku,size,color,price,stock,image1,image2,image3,image4
-shirt-men,Men Shirt,Shirt,SHIRT-S-BLACK,S,Black,1299,4,products/shirt/SHIRT-S-BLACK-1.jpg,products/shirt/SHIRT-S-BLACK-2.jpg,products/shirt/SHIRT-S-BLACK-3.jpg,products/shirt/SHIRT-S-BLACK-4.jpg
-shirt-men,Men Shirt,Shirt,SHIRT-M-BLACK,M,Black,1299,10,products/shirt/SHIRT-M-BLACK-1.jpg,products/shirt/SHIRT-M-BLACK-2.jpg,products/shirt/SHIRT-M-BLACK-3.jpg,products/shirt/SHIRT-M-BLACK-4.jpg
-shirt-men,Men Shirt,Shirt,SHIRT-M-BLUE,M,Blue,1299,6,products/shirt/SHIRT-M-BLUE-1.jpg,products/shirt/SHIRT-M-BLUE-2.jpg,products/shirt/SHIRT-M-BLUE-3.jpg,products/shirt/SHIRT-M-BLUE-4.jpg
-shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE-1.jpg,products/shirt/SHIRT-L-BLUE-2.jpg,products/shirt/SHIRT-L-BLUE-3.jpg,products/shirt/SHIRT-L-BLUE-4.jpg`;
+    const sampleCSV = `handle,title,category,price,description,size,color,stock
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,S,Black,4
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,M,Black,10
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,M,Blue,6
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,L,Blue,2
+jean-women,Women Jean,jeans,1899,Slim fit denim,28,Black,5
+jean-women,Women Jean,jeans,1899,Slim fit denim,30,Black,8
+jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
 
     useEffect(() => {
         loadProducts();
@@ -297,30 +304,50 @@ shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE
         return total;
     };
 
-    // Folder Helper
-    const handleFolderSelect = (e) => {
-        const files = Array.from(e.target.files);
-        setImportFolderFiles(files);
+    // ========== NEW BULK IMPORT WORKFLOW ==========
+
+    // Step 1: Parse CSV and group by handle + color
+    const handleCSVUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const csv = event.target.result;
+            setCsvData(csv);
+
+            try {
+                const parsed = parseCSVToProducts(csv);
+                setParsedProducts(parsed);
+                setImportStep(2); // Move to image upload
+                setImportResult(null);
+            } catch (error) {
+                setImportResult({ success: false, error: `CSV Parse Error: ${error.message}` });
+            }
+        };
+        reader.readAsText(file);
     };
 
-    // Helper to upload a single file
-    const uploadSingleImage = async (file) => {
-        const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        return getDownloadURL(storageRef);
-    };
-
-    // CSV Parser for New Format
-    const parseNewCSV = (csv) => {
+    const parseCSVToProducts = (csv) => {
         // Remove BOM if present
         const content = csv.startsWith('\uFEFF') ? csv.slice(1) : csv;
         const lines = content.trim().split(/\r?\n/);
 
-        // Header: handle,title,category,sku,size,color,price,stock,image1,image2,image3,image4
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
-        console.log("CSV Headers found:", headers);
+        if (lines.length < 2) throw new Error('CSV must have at least a header and one data row');
 
-        const data = [];
+        // Parse headers
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+        console.log("CSV Headers:", headers);
+
+        // Required fields
+        const required = ['handle', 'title', 'category', 'price', 'size', 'color', 'stock'];
+        const missing = required.filter(field => !headers.includes(field));
+        if (missing.length > 0) {
+            throw new Error(`Missing required columns: ${missing.join(', ')}`);
+        }
+
+        // Parse rows
+        const rows = [];
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
 
@@ -332,7 +359,7 @@ shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE
                 if (char === '"') {
                     inQuotes = !inQuotes;
                 } else if (char === ',' && !inQuotes) {
-                    values.push(current.trim().replace(/^"|"$/g, '')); // Remove surrounding quotes from values too
+                    values.push(current.trim().replace(/^"|"$/g, ''));
                     current = '';
                 } else {
                     current += char;
@@ -342,155 +369,172 @@ shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE
 
             const row = {};
             headers.forEach((h, index) => {
-                row[h] = values[index];
+                row[h] = values[index] || '';
             });
-            data.push(row);
+            rows.push(row);
         }
-        return data;
+
+        // Group by handle, then by color within each handle
+        const productGroups = [];
+        const handleMap = {};
+
+        rows.forEach(row => {
+            if (!row.handle) return;
+
+            if (!handleMap[row.handle]) {
+                handleMap[row.handle] = {
+                    handle: row.handle,
+                    title: row.title,
+                    category: row.category,
+                    price: row.price,
+                    description: row.description || row.title,
+                    variants: {} // { color: [sizes] }
+                };
+                productGroups.push(handleMap[row.handle]);
+            }
+
+            const product = handleMap[row.handle];
+            const color = row.color || 'Default';
+
+            if (!product.variants[color]) {
+                product.variants[color] = [];
+            }
+
+            product.variants[color].push({
+                size: row.size,
+                stock: parseInt(row.stock) || 0
+            });
+        });
+
+        console.log("Parsed Products:", productGroups);
+        return productGroups;
     };
 
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setCsvData(event.target.result);
-            };
-            reader.readAsText(file);
-        }
+    // Step 2: Handle image upload
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        setUploadedImages(files);
+        setImportStep(3); // Move to assignment
     };
 
-    const handleBulkImport = async () => {
-        console.log("Starting Bulk Import...");
-        console.log("CSV Data Length:", csvData ? csvData.length : 0);
-        console.log("Files Selected:", importFolderFiles.length);
+    // Step 3: Image assignment helpers
+    const getVariantKey = (handle, color) => `${handle}__${color}`;
 
-        if (!csvData.trim()) {
-            console.error("CSV Data is empty");
-            setImportResult({ success: false, error: 'Please upload a CSV file' });
+    const assignImageToSlot = (variantKey, slotIndex, imageFile) => {
+        setImageAssignments(prev => {
+            const current = prev[variantKey] || [null, null, null, null];
+            const updated = [...current];
+            updated[slotIndex] = imageFile;
+            return { ...prev, [variantKey]: updated };
+        });
+    };
+
+    const removeImageFromSlot = (variantKey, slotIndex) => {
+        setImageAssignments(prev => {
+            const current = prev[variantKey] || [null, null, null, null];
+            const updated = [...current];
+            updated[slotIndex] = null;
+            return { ...prev, [variantKey]: updated };
+        });
+    };
+
+    const getUnassignedImages = () => {
+        const assigned = new Set();
+        Object.values(imageAssignments).forEach(slots => {
+            slots.forEach(img => {
+                if (img) assigned.add(img);
+            });
+        });
+        return uploadedImages.filter(img => !assigned.has(img));
+    };
+
+    const validateAssignments = () => {
+        const errors = [];
+        parsedProducts.forEach(product => {
+            Object.keys(product.variants).forEach(color => {
+                const key = getVariantKey(product.handle, color);
+                const slots = imageAssignments[key] || [];
+                const filledSlots = slots.filter(s => s !== null).length;
+                if (filledSlots === 0) {
+                    errors.push(`${product.title} - ${color}: No images assigned`);
+                }
+            });
+        });
+        return errors;
+    };
+
+    // Step 4: Process and create products
+    const handleCreateProducts = async () => {
+        const errors = validateAssignments();
+        if (errors.length > 0) {
+            setImportResult({
+                success: false,
+                error: 'Please assign images to all variants',
+                errors
+            });
             return;
         }
 
-        if (importFolderFiles.length === 0) {
-            console.error("No files in folder");
-            setImportResult({ success: false, error: 'Please upload the products folder containing images' });
-            return;
-        }
-
+        setImportStep(4); // Processing
         setImporting(true);
-        setImportResult(null);
+        setImportProgress(0);
 
         try {
-            console.log("Parsing CSV...");
-            const rows = parseNewCSV(csvData);
-            console.log("Parsed Rows:", rows.length, rows);
-
-            // Group rows by 'handle' (Product)
-            const groups = {};
-            rows.forEach(row => {
-                if (!row.handle) return;
-                if (!groups[row.handle]) groups[row.handle] = [];
-                groups[row.handle].push(row);
-            });
-
-            console.log("Product Groups:", Object.keys(groups));
-
             let successCount = 0;
             let errorCount = 0;
-            const errors = [];
-            const warnings = [];
+            const errorDetails = [];
 
-            // Map relative path -> File object for quick lookup
-            // normalize path: replace backslashes (if any) with forward slashes
-            const fileMap = new Map();
-            importFolderFiles.forEach(file => {
-                const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
-                fileMap.set(normalizedPath, file);
-                // Also map just the filename in case user uploaded flat structure or path mismatch
-                fileMap.set(file.name, file);
-            });
-            console.log("File Map Size:", fileMap.size);
+            for (let i = 0; i < parsedProducts.length; i++) {
+                const product = parsedProducts[i];
 
-            for (const handle of Object.keys(groups)) {
                 try {
-                    const productRows = groups[handle];
-                    const first = productRows[0];
-
-                    // Process Variants & Stock
+                    // Upload images and build product data
                     const colorSizeStock = {};
                     const colorImages = {};
                     const allSizes = new Set();
 
-                    // Iterate variants
-                    // We need to async upload images here
+                    for (const [color, sizeData] of Object.entries(product.variants)) {
+                        const variantKey = getVariantKey(product.handle, color);
+                        const imageSlots = imageAssignments[variantKey] || [];
 
-                    // We track which colors we've already processed images for to avoid duplicates
-                    const processedColorsForImages = new Set();
-
-                    for (const row of productRows) {
-                        const color = row.color || 'Default';
-                        const size = row.size;
-                        const stock = parseInt(row.stock) || 0;
-
-                        // Stock Logic
-                        if (!colorSizeStock[color]) colorSizeStock[color] = {};
-                        colorSizeStock[color][size] = stock;
-                        allSizes.add(size);
-
-                        // Image Logic
-                        // Only upload images for a color once (assuming all rows for same color have same images)
-                        if (!processedColorsForImages.has(color)) {
-                            // Extract image columns
-                            // Support up to 4 images
-                            const imagePaths = [row.image1, row.image2, row.image3, row.image4].filter(p => p && p.trim());
-
-                            const imageUrls = [];
-
-                            for (const path of imagePaths) {
-                                // Try to find the file
-                                // The CSV path: "products/shirt/SHIRT-S-BLACK-1.jpg"
-                                // The file.webkitRelativePath: "products/shirt/SHIRT-S-BLACK-1.jpg" (if "products" folder uploaded)
-
-                                // We try exact match first
-                                let file = fileMap.get(path.trim());
-                                // If not found, try to match by filename if path structure differs
-                                if (!file) {
-                                    const filename = path.split('/').pop();
-                                    file = fileMap.get(filename);
-                                }
-
-                                if (file) {
-                                    const url = await uploadSingleImage(file);
-                                    imageUrls.push(url);
-                                } else {
-                                    warnings.push(`${handle}: Image not found: ${path}`);
-                                }
-                            }
-
-                            if (imageUrls.length > 0) {
-                                colorImages[color] = imageUrls;
-                                processedColorsForImages.add(color);
+                        // Upload images for this color
+                        const imageUrls = [];
+                        for (let j = 0; j < imageSlots.length; j++) {
+                            const file = imageSlots[j];
+                            if (file) {
+                                const filename = `${Date.now()}_${product.handle}_${color}_${j + 1}.jpg`;
+                                const storageRef = ref(storage, `products/${filename}`);
+                                await uploadBytes(storageRef, file);
+                                const url = await getDownloadURL(storageRef);
+                                imageUrls.push(url);
                             }
                         }
+
+                        colorImages[color] = imageUrls;
+
+                        // Build stock data
+                        colorSizeStock[color] = {};
+                        sizeData.forEach(({ size, stock }) => {
+                            colorSizeStock[color][size] = stock;
+                            allSizes.add(size);
+                        });
                     }
 
-                    // Constuct Product Data
-                    // Assume 'title', 'category', 'price' are consistent across rows for the handle
+                    // Create product
                     const productData = {
-                        name: first.title,
-                        category: first.category ? first.category.toLowerCase() : 'other',
-                        price: parseFloat(first.price) || 0,
-                        description: first.title, // Default description to title as it's not in CSV
+                        name: product.title,
+                        category: product.category.toLowerCase(),
+                        price: parseFloat(product.price),
+                        description: product.description,
                         colors: Object.keys(colorSizeStock),
                         sizes: Array.from(allSizes),
                         colorSizeStock,
                         colorImages,
+                        image: Object.values(colorImages)[0]?.[0] || '',
+                        images: Object.values(colorImages)[0] || [],
                         stock: Object.values(colorSizeStock).reduce((acc, sizes) =>
                             acc + Object.values(sizes).reduce((s, q) => s + q, 0), 0
                         ),
-                        // Primary image
-                        image: Object.values(colorImages)[0]?.[0] || '',
-                        images: Object.values(colorImages)[0] || [], // Default images
                         rating: 0,
                         reviewCount: 0,
                         createdAt: new Date().toISOString()
@@ -498,33 +542,41 @@ shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE
 
                     await addProduct(productData);
                     successCount++;
-
                 } catch (err) {
-                    console.error(`Error processing product ${handle}:`, err);
                     errorCount++;
-                    errors.push(`${handle}: ${err.message}`);
+                    errorDetails.push(`${product.title}: ${err.message}`);
                 }
+
+                setImportProgress(Math.round(((i + 1) / parsedProducts.length) * 100));
             }
 
             setImportResult({
                 success: successCount > 0,
-                message: `Imported ${successCount} products successfully`,
-                errors: errorCount > 0 ? errors : null,
-                warnings: warnings.length > 0 ? warnings : null,
+                message: `Created ${successCount} products successfully`,
                 successCount,
-                errorCount
+                errorCount,
+                errors: errorCount > 0 ? errorDetails : null
             });
 
             if (successCount > 0) {
                 loadProducts();
             }
-
         } catch (error) {
-            console.error("Bulk Import Fatal Error:", error);
-            setImportResult({ success: false, error: error.message || "Unknown error occurred" });
+            setImportResult({ success: false, error: error.message });
         } finally {
             setImporting(false);
         }
+    };
+
+    // Reset workflow
+    const resetBulkImport = () => {
+        setImportStep(1);
+        setCsvData('');
+        setParsedProducts([]);
+        setUploadedImages([]);
+        setImageAssignments({});
+        setImportResult(null);
+        setImportProgress(0);
     };
 
     const downloadSample = () => {
@@ -916,100 +968,301 @@ shirt-men,Men Shirt,Shirt,SHIRT-L-BLUE,L,Blue,1299,2,products/shirt/SHIRT-L-BLUE
 
 
                 {showBulkImport && (
-                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); setImportFolderFiles([]); }}>
-                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); resetBulkImport(); }}>
+                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto' }}>
                             <div className="modal-header">
-                                <h2>📦 Bulk Import Products</h2>
-                                <button className="modal-close" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); setImportFolderFiles([]); }}>
+                                <h2>📦 Bulk Import Products - Step {importStep} of 4</h2>
+                                <button className="modal-close" onClick={() => { setShowBulkImport(false); resetBulkImport(); }}>
                                     ✕
                                 </button>
                             </div>
 
                             <div className="bulk-import-content">
-                                <div className="info-section">
-                                    <h3>📋 Instructions:</h3>
-                                    <ol style={{ marginLeft: '1.5rem', marginBottom: '1rem', lineHeight: '1.6' }}>
-                                        <li>Prepare your CSV file with columns: <code>handle, title, category, sku, size, color, price, stock, image1, image2...</code></li>
-                                        <li>Prepare a folder containing all your product images.</li>
-                                        <li>Ensure image paths in CSV match the files in the folder (e.g., <code>products/shirt/img1.jpg</code>).</li>
-                                    </ol>
+                                {/* Step 1: CSV Upload */}
+                                {importStep === 1 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>📋 Step 1: Upload Product CSV</h3>
+                                            <p>Upload a CSV file with your product data. Required columns:</p>
+                                            <code style={{ display: 'block', padding: '10px', background: '#f5f5f5', marginBottom: '10px' }}>
+                                                handle, title, category, price, size, color, stock
+                                            </code>
+                                            <button className="btn btn-sm btn-outline" onClick={downloadSample}>
+                                                📥 Download Sample CSV
+                                            </button>
+                                        </div>
 
-                                    <button className="btn btn-sm btn-outline" onClick={downloadSample}>
-                                        📥 Download Sample CSV
-                                    </button>
-                                </div>
+                                        <div className="upload-section" style={{ marginTop: '20px' }}>
+                                            <label className="file-upload-label">
+                                                <input
+                                                    type="file"
+                                                    accept=".csv"
+                                                    onChange={handleCSVUpload}
+                                                    className="file-input-hidden"
+                                                />
+                                                <span>📄 Choose CSV File</span>
+                                            </label>
+                                        </div>
 
-                                <div className="upload-section">
-                                    {/* 1. CSV Upload */}
-                                    <div className="form-group" style={{ marginBottom: '1rem' }}>
-                                        <label className="form-label">1. Upload CSV File</label>
-                                        <label className="file-upload-label">
-                                            <input
-                                                type="file"
-                                                accept=".csv"
-                                                onChange={handleFileUpload}
-                                                className="file-input-hidden"
-                                            />
-                                            <span>
-                                                {csvData ? '✅ CSV Loaded' : '📄 Choose CSV File'}
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                    {/* 2. Folder Upload */}
-                                    <div className="form-group">
-                                        <label className="form-label">2. Upload Images Folder</label>
-                                        <label className="file-upload-label">
-                                            <input
-                                                type="file"
-                                                webkitdirectory=""
-                                                directory=""
-                                                multiple
-                                                onChange={handleFolderSelect}
-                                                className="file-input-hidden"
-                                            />
-                                            <span>
-                                                {importFolderFiles.length > 0
-                                                    ? `✅ ${importFolderFiles.length} files selected`
-                                                    : '📁 Choose Images Folder'}
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                </div>
-
-                                <button
-                                    className="btn btn-primary btn-full"
-                                    onClick={handleBulkImport}
-                                    disabled={importing || !csvData.trim() || importFolderFiles.length === 0}
-                                    style={{ marginTop: '1.5rem' }}
-                                >
-                                    {importing ? '⏳ Importing & Uploading...' : '🚀 Start Import'}
-                                </button>
-
-                                {importResult && (
-                                    <div className={`import-result ${importResult.success ? 'success' : 'error'}`} style={{ marginTop: '1rem' }}>
-                                        {importResult.success ? (
-                                            <>
-                                                <h4>✅ {importResult.message}</h4>
-                                                {importResult.warnings && (
-                                                    <ul className="error-list" style={{ color: '#ea580c' }}>
-                                                        {importResult.warnings.map((warn, i) => <li key={i}>⚠️ {warn}</li>)}
-                                                    </ul>
-                                                )}
-                                                {importResult.errorCount > 0 && (
-                                                    <ul className="error-list">
-                                                        {importResult.errors.map((err, i) => <li key={i}>❌ {err}</li>)}
-                                                    </ul>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <h4>❌ Import Failed</h4>
-                                                <p>{importResult.error}</p>
-                                            </>
+                                        {csvData && parsedProducts.length > 0 && (
+                                            <div style={{ marginTop: '20px', padding: '15px', background: '#f0f9ff', borderRadius: '8px' }}>
+                                                <h4>✅ CSV Loaded Successfully</h4>
+                                                <p style={{ margin: '10px 0' }}>
+                                                    Found <strong>{parsedProducts.length} products</strong> with{' '}
+                                                    <strong>{parsedProducts.reduce((acc, p) => acc + Object.keys(p.variants).length, 0)} variants</strong>
+                                                </p>
+                                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '4px', background: '#fff' }}>
+                                                    {parsedProducts.map((product, i) => (
+                                                        <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < parsedProducts.length - 1 ? '1px solid #eee' : 'none' }}>
+                                                            <strong>{product.title}</strong> ({product.category}) - ₹{product.price}
+                                                            <div style={{ marginLeft: '20px', fontSize: '13px', color: '#666' }}>
+                                                                Colors: {Object.keys(product.variants).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
+
+                                        {importResult && !importResult.success && (
+                                            <div className="import-result error" style={{ marginTop: '15px' }}>
+                                                <h4>❌ Error</h4>
+                                                <p>{importResult.error}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Step 2: Image Upload */}
+                                {importStep === 2 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>📷 Step 2: Upload Product Images</h3>
+                                            <p>Upload all product images. You can select multiple files at once.</p>
+                                            <p style={{ color: '#666', fontSize: '14px' }}>
+                                                Tip: Upload at least 4 images per color variant for best results.
+                                            </p>
+                                        </div>
+
+                                        <div className="upload-section" style={{ marginTop: '20px' }}>
+                                            <label className="file-upload-label">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    onChange={handleImageUpload}
+                                                    className="file-input-hidden"
+                                                />
+                                                <span>📁 Select Images (Multiple)</span>
+                                            </label>
+                                        </div>
+
+                                        {uploadedImages.length > 0 && (
+                                            <div style={{ marginTop: '20px' }}>
+                                                <p style={{ fontWeight: 'bold' }}>✅ {uploadedImages.length} images uploaded</p>
+                                                <button
+                                                    className="btn btn-outline"
+                                                    onClick={() => setImportStep(1)}
+                                                    style={{ marginRight: '10px' }}
+                                                >
+                                                    ← Back to CSV
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Step 3: Image Assignment */}
+                                {importStep === 3 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>🎯 Step 3: Assign Images to Variants</h3>
+                                            <p>Click on a slot to assign an image from the pool below.</p>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px', maxHeight: '500px', overflowY: 'auto' }}>
+                                            {parsedProducts.map((product) => (
+                                                <div key={product.handle} style={{ marginBottom: '30px', padding: '15px', border: '1px solid #ddd', borderRadius: '8px' }}>
+                                                    <h4 style={{ marginBottom: '15px' }}>{product.title}</h4>
+
+                                                    {Object.keys(product.variants).map((color) => {
+                                                        const variantKey = getVariantKey(product.handle, color);
+                                                        const slots = imageAssignments[variantKey] || [null, null, null, null];
+
+                                                        return (
+                                                            <div key={color} style={{ marginBottom: '20px', padding: '10px', background: '#f9f9f9', borderRadius: '6px' }}>
+                                                                <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#333' }}>
+                                                                    {color} - {product.variants[color].map(s => s.size).join(', ')}
+                                                                </div>
+
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                                                    {slots.map((assignedImg, slotIdx) => (
+                                                                        <div
+                                                                            key={slotIdx}
+                                                                            style={{
+                                                                                border: '2px dashed #ccc',
+                                                                                borderRadius: '8px',
+                                                                                aspectRatio: '1',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                cursor: 'pointer',
+                                                                                background: assignedImg ? '#f0f9ff' : '#fff',
+                                                                                position: 'relative',
+                                                                                overflow: 'hidden'
+                                                                            }}
+                                                                            onClick={() => {
+                                                                                if (!assignedImg) {
+                                                                                    const unassigned = getUnassignedImages();
+                                                                                    if (unassigned.length > 0) {
+                                                                                        assignImageToSlot(variantKey, slotIdx, unassigned[0]);
+                                                                                    }
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {assignedImg ? (
+                                                                                <>
+                                                                                    <img
+                                                                                        src={URL.createObjectURL(assignedImg)}
+                                                                                        alt={`Slot ${slotIdx + 1}`}
+                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            removeImageFromSlot(variantKey, slotIdx);
+                                                                                        }}
+                                                                                        style={{
+                                                                                            position: 'absolute',
+                                                                                            top: '5px',
+                                                                                            right: '5px',
+                                                                                            background: 'rgba(255,0,0,0.8)',
+                                                                                            color: '#fff',
+                                                                                            border: 'none',
+                                                                                            borderRadius: '50%',
+                                                                                            width: '24px',
+                                                                                            height: '24px',
+                                                                                            cursor: 'pointer',
+                                                                                            fontSize: '16px',
+                                                                                            lineHeight: '1'
+                                                                                        }}
+                                                                                    >
+                                                                                        ×
+                                                                                    </button>
+                                                                                </>
+                                                                            ) : (
+                                                                                <div style={{ textAlign: 'center', color: '#999', fontSize: '12px' }}>
+                                                                                    <div style={{ fontSize: '24px', marginBottom: '5px' }}>+</div>
+                                                                                    Slot {slotIdx + 1}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Unassigned Images Pool */}
+                                        <div style={{ marginTop: '20px', padding: '15px', background: '#f5f5f5', borderRadius: '8px' }}>
+                                            <h4>Available Images ({getUnassignedImages().length})</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                                                {getUnassignedImages().map((img, idx) => (
+                                                    <div key={idx} style={{ aspectRatio: '1', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                                                        <img
+                                                            src={URL.createObjectURL(img)}
+                                                            alt={img.name}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            title={img.name}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                                            <button
+                                                className="btn btn-outline"
+                                                onClick={() => setImportStep(2)}
+                                            >
+                                                ← Back
+                                            </button>
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleCreateProducts}
+                                                disabled={importing}
+                                            >
+                                                ✓ Create Products
+                                            </button>
+                                        </div>
+
+                                        {importResult && !importResult.success && (
+                                            <div className="import-result error" style={{ marginTop: '15px' }}>
+                                                <h4>❌ Error</h4>
+                                                <p>{importResult.error}</p>
+                                                {importResult.errors && (
+                                                    <ul className="error-list">
+                                                        {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Step 4: Processing */}
+                                {importStep === 4 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>⚙️ Processing...</h3>
+                                            <p>Uploading images and creating products...</p>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px' }}>
+                                            <div style={{ width: '100%', height: '20px', background: '#e0e0e0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                <div
+                                                    style={{
+                                                        width: `${importProgress}%`,
+                                                        height: '100%',
+                                                        background: 'linear-gradient(90deg, #4caf50, #45a049)',
+                                                        transition: 'width 0.3s'
+                                                    }}
+                                                />
+                                            </div>
+                                            <p style={{ textAlign: 'center', marginTop: '10px', fontWeight: 'bold' }}>{importProgress}%</p>
+                                        </div>
+
+                                        {importResult && (
+                                            <div className={`import-result ${importResult.success ? 'success' : 'error'}`} style={{ marginTop: '20px' }}>
+                                                {importResult.success ? (
+                                                    <>
+                                                        <h4>✅ {importResult.message}</h4>
+                                                        <p>Products created successfully!</p>
+                                                        <button
+                                                            className="btn btn-primary"
+                                                            onClick={() => { setShowBulkImport(false); resetBulkImport(); }}
+                                                            style={{ marginTop: '15px' }}
+                                                        >
+                                                            Close
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <h4>❌ Import Failed</h4>
+                                                        <p>{importResult.error}</p>
+                                                        {importResult.errors && (
+                                                            <ul className="error-list">
+                                                                {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                                            </ul>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>

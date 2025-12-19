@@ -23,6 +23,7 @@ import {
     getDocs,
     orderBy
 } from 'firebase/firestore';
+import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { firebaseConfig } from './config';
 import { runTransaction } from "firebase/firestore";
 
@@ -325,9 +326,55 @@ export const updateProduct = async (productId, productData) => {
 // Delete product (Admin only)
 export const deleteProduct = async (productId) => {
     try {
+        // First, get the product data to extract image URLs
+        const productDoc = await getDoc(doc(db, 'products', productId));
+
+        if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const storage = getStorage();
+            const imageUrls = [];
+
+            // Collect all image URLs
+            if (productData.image) imageUrls.push(productData.image);
+            if (productData.images && Array.isArray(productData.images)) {
+                imageUrls.push(...productData.images);
+            }
+            if (productData.colorImages && typeof productData.colorImages === 'object') {
+                Object.values(productData.colorImages).forEach(urls => {
+                    if (Array.isArray(urls)) imageUrls.push(...urls);
+                });
+            }
+
+            // Delete unique images from Firebase Storage
+            const uniqueUrls = [...new Set(imageUrls)];
+            const deletePromises = uniqueUrls.map(async (url) => {
+                try {
+                    if (url && url.includes('firebase')) {
+                        // Extract path from Firebase Storage URL
+                        const decodedUrl = decodeURIComponent(url);
+                        const pathMatch = decodedUrl.match(/\/o\/(.*?)\?/);
+                        if (pathMatch && pathMatch[1]) {
+                            const imagePath = pathMatch[1];
+                            const imageRef = ref(storage, imagePath);
+                            await deleteObject(imageRef);
+                            console.log(`Deleted image: ${imagePath}`);
+                        }
+                    }
+                } catch (imgError) {
+                    // Continue even if individual image deletion fails
+                    console.warn(`Failed to delete image ${url}:`, imgError.message);
+                }
+            });
+
+            // Wait for all image deletions
+            await Promise.all(deletePromises);
+        }
+
+        // Delete the product document
         await deleteDoc(doc(db, 'products', productId));
         return { success: true };
     } catch (error) {
+        console.error("Error deleting product:", error);
         return { success: false, error: error.message };
     }
 };
