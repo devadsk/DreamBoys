@@ -248,6 +248,26 @@
     height: 32px;
 }
 
+/* Shipping Review */
+.shipping-review {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.shipping-review p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.shipping-review strong {
+    color: var(--color-text);
+}
+
+
 /* Payment Methods */
 .payment-methods {
     display: flex;
@@ -299,6 +319,17 @@
     border-radius: 50%;
 }
 
+.payment-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    color: var(--color-text-secondary);
+}
+
 .payment-info {
     flex: 1;
 }
@@ -314,6 +345,88 @@
     font-size: 0.875rem;
     color: var(--color-text-secondary);
 }
+
+/* Payment Logos */
+.payment-logos-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.payment-logo-main {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+}
+
+.payment-logos-sub {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.payment-logos-sub img {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.payment-method-card:hover .payment-logos-sub img {
+    opacity: 1;
+}
+
+.card-logos img {
+    height: 20px;
+}
+
+/* Sub Options */
+.sub-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.sub-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.sub-option:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.sub-option.active {
+    background: #eff6ff;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.sub-option input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.sub-option-logo {
+    height: 20px;
+    width: auto;
+    object-fit: contain;
+}
+
 
 /* Order Summary Sidebar */
 .order-summary {

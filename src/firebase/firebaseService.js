@@ -176,6 +176,19 @@ export const getProducts = async () => {
     }
 };
 
+// Get all products (returns array directly for admin)
+export const getAllProducts = async () => {
+    try {
+        const productsRef = collection(db, 'products');
+        const snapshot = await getDocs(productsRef);
+        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return products;
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        return [];
+    }
+};
+
 // Get single product
 export const getProduct = async (productId) => {
     try {
@@ -444,13 +457,26 @@ export const createOrder = async (orderData) => {
             const newOrderRef = doc(ordersRef); // Auto-ID
             const orderNumber = 'ORD-' + Date.now();
 
-            const newOrder = {
+            // Helper function to remove undefined values recursively
+            const removeUndefined = (obj) => {
+                if (obj === null || typeof obj !== 'object') return obj;
+                if (Array.isArray(obj)) return obj.map(removeUndefined);
+
+                return Object.entries(obj).reduce((acc, [key, value]) => {
+                    if (value !== undefined) {
+                        acc[key] = typeof value === 'object' ? removeUndefined(value) : value;
+                    }
+                    return acc;
+                }, {});
+            };
+
+            const newOrder = removeUndefined({
                 ...orderData,
                 orderNumber,
                 status: 'pending',
                 createdAt: new Date().toISOString(),
                 id: newOrderRef.id // Save ID inside doc too if needed
-            };
+            });
 
             transaction.set(newOrderRef, newOrder);
 
@@ -493,19 +519,36 @@ export const getAllOrders = async () => {
         const q = query(ordersRef, orderBy('createdAt', 'desc'));
         const snapshot = await getDocs(q);
         const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return { success: true, data: orders };
+        return orders; // Return array directly
     } catch (error) {
-        return { success: false, error: error.message };
+        console.error('Error fetching orders:', error);
+        return [];
     }
 };
 
 // Update order status (Admin only)
 export const updateOrderStatus = async (orderId, status) => {
     try {
-        await updateDoc(doc(db, 'orders', orderId), { status });
+        await updateDoc(doc(db, 'orders', orderId), {
+            status,
+            updatedAt: new Date().toISOString()
+        });
         return { success: true };
     } catch (error) {
         return { success: false, error: error.message };
+    }
+};
+
+// Get all users (Admin only)
+export const getAllUsers = async () => {
+    try {
+        const usersRef = collection(db, 'users');
+        const snapshot = await getDocs(usersRef);
+        const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return users;
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return [];
     }
 };
 

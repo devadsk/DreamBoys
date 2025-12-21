@@ -1,11 +1,14 @@
 .admin-dashboard {
     padding: var(--spacing-3xl) 0;
     min-height: calc(100vh - 200px);
-    background: var(--color-light);
+    background: #f9fafb;
 }
 
 .admin-header {
     margin-bottom: var(--spacing-2xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .admin-header h1 {
@@ -19,6 +22,23 @@
     font-size: 1.125rem;
 }
 
+.btn-refresh {
+    background: var(--color-primary);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-refresh:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
+}
+
+/* Statistics Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -29,8 +49,8 @@
 .stat-card {
     background: var(--color-white);
     padding: var(--spacing-xl);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
@@ -40,13 +60,13 @@
 
 .stat-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .stat-icon {
     width: 60px;
     height: 60px;
-    border-radius: var(--radius-lg);
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -61,7 +81,7 @@
 .stat-title {
     color: var(--color-gray-600);
     font-size: 0.875rem;
-    margin-bottom: var(--spacing-xs);
+    margin-bottom: 4px;
 }
 
 .stat-value {
@@ -70,24 +90,106 @@
     margin: 0;
 }
 
+.stat-subtitle {
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    margin-top: 4px;
+}
+
+/* Order Status Overview */
+.order-status-overview {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 32px;
+}
+
+.order-status-overview h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.status-item {
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.status-item.status-pending {
+    background: #fef3c7;
+}
+
+.status-item.status-processing {
+    background: #dbeafe;
+}
+
+.status-item.status-shipped {
+    background: #e0e7ff;
+}
+
+.status-item.status-delivered {
+    background: #d1fae5;
+}
+
+.status-count {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.status-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+/* Admin Grid */
 .admin-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: var(--spacing-xl);
+    margin-bottom: 32px;
 }
 
 .admin-card {
     background: var(--color-white);
     padding: var(--spacing-xl);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
 .admin-card h2 {
     font-size: 1.5rem;
-    margin-bottom: var(--spacing-lg);
+    margin: 0;
 }
 
+.view-all-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
+/* Table */
 .table-container {
     overflow-x: auto;
     margin-bottom: var(--spacing-lg);
@@ -100,75 +202,228 @@
 
 .admin-table th {
     text-align: left;
-    padding: var(--spacing-md);
-    background: var(--color-light);
+    padding: 12px;
+    background: #f9fafb;
     font-weight: 600;
     color: var(--color-gray-700);
+    border-bottom: 2px solid #e5e7eb;
 }
 
 .admin-table td {
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--color-gray-200);
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
+.admin-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.order-number {
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.order-total {
+    font-weight: 700;
+}
+
+/* Status Badges */
 .status-badge {
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-full);
+    padding: 4px 12px;
+    border-radius: 12px;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: capitalize;
+    display: inline-block;
 }
 
-.status-delivered {
-    background: var(--color-success);
-    color: var(--color-white);
-}
-
-.status-shipped {
-    background: var(--color-info);
-    color: var(--color-white);
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
 }
 
 .status-processing {
-    background: var(--color-warning);
-    color: var(--color-white);
+    background: #dbeafe;
+    color: #1e40af;
 }
 
-.quick-actions {
+.status-shipped {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.status-delivered {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Low Stock List */
+.low-stock-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.low-stock-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: #fef3c7;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+}
+
+.low-stock-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.low-stock-item .product-info {
+    flex: 1;
+}
+
+.low-stock-item h4 {
+    margin: 0 0 4px 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.stock-warning {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #92400e;
+    font-weight: 600;
+}
+
+.btn-restock {
+    padding: 8px 16px;
+    background: var(--color-primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.btn-restock:hover {
+    background: #1d4ed8;
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .action-btn {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
-    background: var(--color-light);
-    border-radius: var(--radius-md);
+    gap: 12px;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 8px;
     text-decoration: none;
     color: var(--color-gray-800);
     font-weight: 600;
-    transition: all var(--transition-base);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
 }
 
 .action-btn:hover {
-    background: var(--gradient-accent);
-    color: var(--color-white);
-    transform: translateX(4px);
+    background: var(--color-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .action-icon {
     font-size: 1.5rem;
 }
 
-@media (max-width: 768px) {
+/* Buttons */
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.btn-outline {
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
+    background: transparent;
+}
+
+.btn-outline:hover {
+    background: var(--color-primary);
+    color: white;
+}
+
+/* Loading State */
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #e5e7eb;
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--color-gray-500);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
     .admin-grid {
         grid-template-columns: 1fr;
     }
+}
+
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
 
     .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .quick-actions {
         grid-template-columns: 1fr;
     }
 }

@@ -10,6 +10,7 @@ import {
     createOrder
 } from '../firebase/firebaseService';
 import { loadRazorpay } from '../utils/razorpay';
+import { createRazorpayOrder, verifyRazorpayPayment } from '../utils/razorpayFunctions';
 import './Checkout.css';
 import { Timestamp } from 'firebase/firestore';
 
@@ -190,11 +191,29 @@ const Checkout = () => {
         try {
             setProcessing(true);
 
+            // Validate shipping info
+            if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone ||
+                !shippingInfo.street || !shippingInfo.city || !shippingInfo.state ||
+                !shippingInfo.zipCode || !shippingInfo.country) {
+                alert('Please ensure all shipping information is filled out.');
+                setProcessing(false);
+                return;
+            }
+
             // Basic Order Data (common for both)
             const orderBase = {
                 userId: currentUser.uid,
                 items: cart,
-                shippingAddress: shippingInfo,
+                shippingAddress: {
+                    fullName: shippingInfo.fullName,
+                    email: shippingInfo.email,
+                    phone: shippingInfo.phone,
+                    street: shippingInfo.street,
+                    city: shippingInfo.city,
+                    state: shippingInfo.state,
+                    zipCode: shippingInfo.zipCode,
+                    country: shippingInfo.country
+                },
                 subtotal: cartTotal,
                 shipping: 0,
                 total: cartTotal,
@@ -215,7 +234,7 @@ const Checkout = () => {
                     alert(`Order Failed: ${res.error}`);
                 }
             }
-            // CASE 2: Online Payment (Razorpay)
+            // CASE 2: Online Payment (Razorpay with Cloud Function)
             else {
                 const isLoaded = await loadRazorpay();
                 if (!isLoaded) {
@@ -231,62 +250,95 @@ const Checkout = () => {
                     return;
                 }
 
-                const options = {
-                    key: "rzp_test_RtXru6hrKoNN6y", // ⚠️ USER MUST REPLACE THIS
-                    amount: Math.round(cartTotal * 100), // Amount in paise
-                    currency: "INR",
-                    name: "DreamBoys Fashion",
-                    description: "Order Payment",
-                    // image: "/logo.png", // Add logo if available
-                    handler: async function (response) {
-                        try {
-                            const res = await createOrder({
-                                ...orderBase,
-                                paymentMethod: paymentMethod,
-                                paymentDetails: {
-                                    razorpay_payment_id: response.razorpay_payment_id,
-                                    razorpay_order_id: response.razorpay_order_id || '', // Handle missing ID in client-only flow
-                                    razorpay_signature: response.razorpay_signature || ''
-                                }
-                            });
-
-                            if (res.success) {
-                                clearCart();
-                                navigate(`/order-success/${res.orderNumber}`);
-                            } else {
-                                alert(`Payment successful but Order Creation Failed: ${res.error}`);
-                            }
-                        } catch (err) {
-                            console.error("Post-payment error:", err);
-                            alert("An error occurred after payment.");
-                        }
-                    },
-                    prefill: {
-                        name: shippingInfo.fullName,
-                        email: shippingInfo.email,
-                        contact: shippingInfo.phone
-                    },
-                    theme: {
-                        color: "#dc2626"
-                    },
-                    modal: {
-                        ondismiss: function () {
-                            setProcessing(false);
-                            console.log('Razorpay modal closed');
-                        }
-                    }
-                };
-
                 try {
+                    // Step 1: Create Razorpay order via Cloud Function
+                    console.log('Creating Razorpay order via Cloud Function...');
+                    const razorpayOrderData = await createRazorpayOrder(
+                        cartTotal,
+                        paymentMethod,
+                        'INR'
+                    );
+
+                    if (!razorpayOrderData.success) {
+                        throw new Error('Failed to create Razorpay order');
+                    }
+
+                    console.log('Razorpay order created:', razorpayOrderData.orderId);
+
+                    // Step 2: Open Razorpay checkout with order_id
+                    const options = {
+                        key: "rzp_test_RtlhgJ14PsoRoN", // ⚠️ USER MUST REPLACE THIS
+                        order_id: razorpayOrderData.orderId, // Server-generated order ID
+                        amount: razorpayOrderData.amount,
+                        currency: razorpayOrderData.currency,
+                        name: "DreamBoys Fashion",
+                        description: "Order Payment",
+                        // image: "/logo.png", // Add logo if available
+                        handler: async function (response) {
+                            try {
+                                console.log('Payment successful:', response);
+
+                                // Step 3: Verify payment signature (optional but recommended)
+                                const verificationResult = await verifyRazorpayPayment(
+                                    response.razorpay_order_id,
+                                    response.razorpay_payment_id,
+                                    response.razorpay_signature
+                                );
+
+                                if (!verificationResult.verified) {
+                                    throw new Error('Payment verification failed');
+                                }
+
+                                // Step 4: Create order in Firestore
+                                const paymentDetails = {
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    verified: true
+                                };
+
+                                const res = await createOrder({
+                                    ...orderBase,
+                                    paymentMethod: paymentMethod,
+                                    paymentDetails: paymentDetails
+                                });
+
+                                if (res.success) {
+                                    clearCart();
+                                    navigate(`/order-success/${res.orderNumber}`);
+                                } else {
+                                    alert(`Payment successful but Order Creation Failed: ${res.error}`);
+                                }
+                            } catch (err) {
+                                console.error("Post-payment error:", err);
+                                alert(`An error occurred after payment: ${err.message}`);
+                            }
+                        },
+                        prefill: {
+                            name: shippingInfo.fullName,
+                            email: shippingInfo.email,
+                            contact: shippingInfo.phone
+                        },
+                        theme: {
+                            color: "#dc2626"
+                        },
+                        modal: {
+                            ondismiss: function () {
+                                setProcessing(false);
+                                console.log('Razorpay modal closed');
+                            }
+                        }
+                    };
+
                     const paymentObject = new window.Razorpay(options);
                     paymentObject.on('payment.failed', function (response) {
                         alert(`Payment Failed: ${response.error.description}`);
                         setProcessing(false);
                     });
                     paymentObject.open();
-                } catch (rzpError) {
-                    console.error("Razorpay Init Error:", rzpError);
-                    alert(`Failed to open Razorpay: ${rzpError.message}. Did you replace the API Key?`);
+                } catch (cloudFunctionError) {
+                    console.error("Cloud Function Error:", cloudFunctionError);
+                    alert(`Failed to initiate payment: ${cloudFunctionError.message}`);
                     setProcessing(false);
                 }
             }
@@ -511,25 +563,32 @@ const Checkout = () => {
                                         onClick={() => setPaymentMethod('upi-gpay')}
                                     >
                                         <div className="radio-circle"></div>
-                                        <div className="payment-icon">
-                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                                                <path d="M2 10h20"></path>
-                                            </svg>
+                                        <div className="payment-logos-group">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/200px-UPI-Logo-vector.svg.png" alt="UPI" className="payment-logo-main" />
+                                            {/* <div className="payment-logos-sub">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/120px-Google_Pay_Logo.svg.png" alt="GPay" />
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/PhonePe_Logo.png/120px-PhonePe_Logo.png" alt="PhonePe" />
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/120px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm" />
+                                            </div> */}
                                         </div>
                                         <div className="payment-info">
-                                            <span className="payment-title">UPI (GPay, PhonePe, Paytm)</span>
-                                            <span className="payment-desc">Instant payment via UPI Apps</span>
+                                            <span className="payment-title">UPI Payment</span>
+                                            <span className="payment-desc">GPay, PhonePe, Paytm & more</span>
                                             {paymentMethod.startsWith('upi') && (
                                                 <div className="sub-options">
                                                     <label className={`sub-option ${paymentMethod === 'upi-gpay' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-gpay'} onChange={() => setPaymentMethod('upi-gpay')} /> GPay
+                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-gpay'} onChange={() => setPaymentMethod('upi-gpay')} />
+                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/120px-Google_Pay_Logo.svg.png" alt="GPay" className="sub-option-logo" />
                                                     </label>
                                                     <label className={`sub-option ${paymentMethod === 'upi-phonepe' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-phonepe'} onChange={() => setPaymentMethod('upi-phonepe')} /> PhonePe
+                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-phonepe'} onChange={() => setPaymentMethod('upi-phonepe')} />
+                                                        <img src="/payment-logos/phonepe.svg" alt="PhonePe" className="sub-option-logo" />
+
                                                     </label>
                                                     <label className={`sub-option ${paymentMethod === 'upi-paytm' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-paytm'} onChange={() => setPaymentMethod('upi-paytm')} /> Paytm
+                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-paytm'} onChange={() => setPaymentMethod('upi-paytm')} />
+                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/120px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm" className="sub-option-logo" />
+
                                                     </label>
                                                 </div>
                                             )}
@@ -542,11 +601,12 @@ const Checkout = () => {
                                         onClick={() => setPaymentMethod('card')}
                                     >
                                         <div className="radio-circle"></div>
-                                        <div className="payment-icon">
-                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                                                <line x1="1" y1="10" x2="23" y2="10"></line>
-                                            </svg>
+                                        <div className="payment-logos-group">
+                                            <div className="payment-logos-sub card-logos">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/120px-Visa_Inc._logo.svg.png" alt="Visa" />
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/120px-Mastercard-logo.svg.png" alt="Mastercard" />
+                                                <img src="/payment-logos/rupay.png" alt="RuPay" />
+                                            </div>
                                         </div>
                                         <div className="payment-info">
                                             <span className="payment-title">Credit / Debit Card</span>
