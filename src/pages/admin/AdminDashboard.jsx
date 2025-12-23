@@ -269,6 +269,10 @@ const AdminDashboard = () => {
                             <span className="action-icon">🛒</span>
                             <span>Manage Orders</span>
                         </Link>
+                        <Link to="/admin/messages" className="action-btn">
+                            <span className="action-icon">✉️</span>
+                            <span>Customer Messages</span>
+                        </Link>
                         <Link to="/admin/users" className="action-btn">
                             <span className="action-icon">👥</span>
                             <span>Manage Users</span>

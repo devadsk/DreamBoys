@@ -84,6 +84,7 @@ const Profile = () => {
                 )}
 
                 <div className="profile-grid">
+                    {/* Left Column: User Info Card */}
                     <div className="profile-card">
                         <div className="profile-avatar-large">
                             {userData?.photoURL ? (
@@ -100,6 +101,7 @@ const Profile = () => {
                         </p>
                     </div>
 
+                    {/* Right Column: Content */}
                     <div className="profile-details">
                         <div className="profile-details-header">
                             <h2>Account Information</h2>

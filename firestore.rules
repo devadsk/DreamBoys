@@ -116,6 +116,23 @@ service cloud.firestore {
       // Only admins can manage testimonials
       allow create, update, delete: if isAdmin();
     }
+
+    // ===== MESSAGES COLLECTION (Contact Form) =====
+    match /messages/{messageId} {
+      // Admins can read all messages
+      // Users can read their own messages
+      allow read: if isAdmin() || 
+                  (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Anyone can create a message
+      // If guest: userId must be null
+      // If logged in: userId must match auth.uid
+      allow create: if (!isSignedIn() && request.resource.data.userId == null) ||
+                    (isSignedIn() && request.resource.data.userId == request.auth.uid);
+      
+      // Only admins can update (reply) or delete
+      allow update, delete: if isAdmin();
+    }
     
     // ===== CART ITEMS (if stored separately) =====
     match /carts/{userId}/items/{itemId} {

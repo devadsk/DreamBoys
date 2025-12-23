@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { addMessage } from '../firebase/firebaseService';
 import './Contact.css';
 
 const Contact = () => {
+    const { currentUser } = useAuth();
     const [formData, setFormData] = useState({
-        name: '',
-        email: '',
+        name: currentUser?.displayName || '',
+        email: currentUser?.email || '',
         phone: '',
         subject: '',
         message: ''
     });
 
     const [formStatus, setFormStatus] = useState({ type: '', message: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const branches = [
         {
@@ -50,25 +54,41 @@ const Contact = () => {
         });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        setFormStatus({ type: '', message: '' });
 
-        // Simulate form submission
-        setFormStatus({ type: 'success', message: 'Thank you for contacting us! We\'ll get back to you soon.' });
+        try {
+            const messageData = {
+                ...formData,
+                userId: currentUser ? currentUser.uid : null
+            };
 
-        // Reset form
-        setFormData({
-            name: '',
-            email: '',
-            phone: '',
-            subject: '',
-            message: ''
-        });
+            const result = await addMessage(messageData);
 
-        // Clear status after 5 seconds
-        setTimeout(() => {
-            setFormStatus({ type: '', message: '' });
-        }, 5000);
+            if (result.success) {
+                setFormStatus({ type: 'success', message: 'Thank you for contacting us! We\'ll get back to you soon.' });
+                // Reset form but keep name/email if logged in
+                setFormData({
+                    name: currentUser?.displayName || '',
+                    email: currentUser?.email || '',
+                    phone: '',
+                    subject: '',
+                    message: ''
+                });
+            } else {
+                setFormStatus({ type: 'error', message: 'Failed to send message: ' + result.error });
+            }
+        } catch (error) {
+            setFormStatus({ type: 'error', message: 'An unexpected error occurred.' });
+        } finally {
+            setIsSubmitting(false);
+            // Clear status after 5 seconds
+            setTimeout(() => {
+                setFormStatus({ type: '', message: '' });
+            }, 5000);
+        }
     };
 
     return (
@@ -187,12 +207,18 @@ const Contact = () => {
                                         </div>
                                     )}
 
-                                    <button type="submit" className="btn-submit-premium">
-                                        <span>Send Message</span>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                        </svg>
+                                    <button type="submit" className="btn-submit-premium" disabled={isSubmitting}>
+                                        {isSubmitting ? (
+                                            <span>Sending...</span>
+                                        ) : (
+                                            <>
+                                                <span>Send Message</span>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                                </svg>
+                                            </>
+                                        )}
                                     </button>
                                 </form>
                             </div>

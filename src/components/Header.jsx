@@ -104,6 +104,7 @@ const Header = () => {
                                         <small>{currentUser.email}</small>
                                     </div>
                                     <Link to="/profile" onClick={() => setUserMenuOpen(false)}>My Profile</Link>
+                                    <Link to="/my-messages" onClick={() => setUserMenuOpen(false)}>My Messages</Link>
                                     <Link to="/orders" onClick={() => setUserMenuOpen(false)}>Orders</Link>
                                     <button onClick={handleLogout}>Logout</button>
                                 </div>

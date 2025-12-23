@@ -1126,3 +1126,66 @@ export const deleteAddress = async (userId, addressId) => {
         return { success: false, error: error.message };
     }
 };
+// ===== MESSAGES FUNCTIONS =====
+
+// Add a new message
+export const addMessage = async (messageData) => {
+    try {
+        const docRef = await addDoc(collection(db, 'messages'), {
+            ...messageData,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+        });
+        return { success: true, id: docRef.id };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// Get all messages (Admin only)
+export const getMessages = async () => {
+    try {
+        const messagesRef = collection(db, 'messages');
+        const q = query(messagesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { success: true, data: messages };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// Get messages for a specific user
+export const getUserMessages = async (userId) => {
+    try {
+        const messagesRef = collection(db, 'messages');
+        const q = query(messagesRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { success: true, data: messages };
+    } catch (error) {
+        // Fallback for missing index
+        if (error.code === 'failed-precondition') {
+            const messagesRef = collection(db, 'messages');
+            const q = query(messagesRef, where('userId', '==', userId));
+            const snapshot = await getDocs(q);
+            const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return { success: true, data: messages };
+        }
+        return { success: false, error: error.message };
+    }
+};
+
+// Update message (Reply)
+export const updateMessage = async (messageId, updateData) => {
+    try {
+        await updateDoc(doc(db, 'messages', messageId), {
+            ...updateData,
+            updatedAt: new Date().toISOString()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};

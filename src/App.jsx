@@ -25,6 +25,8 @@ import AdminProducts from './pages/admin/AdminProducts';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminContent from './pages/admin/AdminContent';
+import AdminMessages from './pages/admin/AdminMessages';
+import UserMessages from './pages/UserMessages';
 import InitializeData from './pages/admin/InitializeData';
 
 // Components
@@ -79,6 +81,7 @@ function App() {
                                     <Route path="/order-success/:orderId" element={<PrivateRoute><OrderSuccess /></PrivateRoute>} />
                                     <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
                                     <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                                    <Route path="/my-messages" element={<PrivateRoute><UserMessages /></PrivateRoute>} />
 
                                     {/* Admin Routes */}
                                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -86,6 +89,7 @@ function App() {
                                     <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
                                     <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
                                     <Route path="/admin/content" element={<AdminRoute><AdminContent /></AdminRoute>} />
+                                    <Route path="/admin/messages" element={<AdminRoute><AdminMessages /></AdminRoute>} />
                                     <Route path="/admin/initialize" element={<AdminRoute><InitializeData /></AdminRoute>} />
                                 </Routes>
                             </main>
