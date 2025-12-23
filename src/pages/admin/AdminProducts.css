@@ -3,6 +3,7 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     overflow: hidden;
+    color: white;
 }
 
 .admin-table {
@@ -117,7 +118,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: white;
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
@@ -127,6 +128,7 @@
     animation: fadeIn var(--transition-base);
     padding: 2rem;
     /* Add padding to prevent modal from touching edges */
+    color: white;
 }
 
 .modal-content {
@@ -1091,5 +1093,119 @@
 
     .total-value {
         font-size: 1.5rem;
+    }
+}
+
+/* Variant Images Management */
+.variant-images-management {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    background: var(--color-gray-50);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-gray-200);
+    margin-top: var(--spacing-md);
+}
+
+.color-image-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.color-group-label {
+    font-weight: 700;
+    color: var(--color-gray-800);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.image-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+}
+
+.image-slot {
+    aspect-ratio: 1;
+    position: relative;
+    border: 2px dashed var(--color-gray-300);
+    border-radius: var(--radius-md);
+    background: white;
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.image-slot:hover {
+    border-color: var(--color-accent);
+    background: var(--color-gray-50);
+}
+
+.slot-input-hidden {
+    display: none;
+}
+
+.slot-upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+}
+
+.slot-placeholder {
+    font-size: 2rem;
+    color: var(--color-gray-400);
+    font-weight: 300;
+}
+
+.slot-preview-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.slot-img-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-slot-img {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    background: var(--color-error);
+    color: white;
+    border: none;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-base);
+    z-index: 10;
+}
+
+.remove-slot-img:hover {
+    transform: scale(1.1);
+    background: #b91c1c;
+}
+
+@media (max-width: 600px) {
+    .image-slots-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }

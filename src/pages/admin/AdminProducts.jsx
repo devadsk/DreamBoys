@@ -22,7 +22,6 @@ const AdminProducts = () => {
     const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
 
     const [formData, setFormData] = useState({
-        sku: '',
         name: '',
         price: '',
         description: '',
@@ -32,7 +31,10 @@ const AdminProducts = () => {
         image: ''
     });
 
-    const [imageFile, setImageFile] = useState(null);
+    // Manual upload image slots: { color__slotIdx: File | string }
+    const [manualImageSlots, setManualImageSlots] = useState({});
+
+    const [imageFile, setImageFile] = useState(null); // Keep for legacy/fallback single image
     const [imagePreview, setImagePreview] = useState('');
     const [newSize, setNewSize] = useState('');
     const [newSizeQty, setNewSizeQty] = useState('');
@@ -94,84 +96,57 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
         setUploading(true);
 
         try {
-            let imageUrl = formData.image;
+            // Process and upload all images in manualImageSlots
+            const colorImages = {};
+            const allSizeStock = formData.colorSizeStock;
+            const activeColors = formData.colors.length > 0 ? formData.colors : ['default'];
 
-            if (imageFile) {
-                imageUrl = await uploadImage(imageFile);
+            // Iterate through active colors and their slots (1-4)
+            for (const color of activeColors) {
+                const urls = [];
+                for (let i = 1; i <= 4; i++) {
+                    const slotKey = `${color}__${i}`;
+                    const slotValue = manualImageSlots[slotKey];
+
+                    if (slotValue) {
+                        if (slotValue instanceof File) {
+                            // Upload new file
+                            const url = await uploadImage(slotValue);
+                            urls.push(url);
+                        } else if (typeof slotValue === 'string') {
+                            // Existing URL
+                            urls.push(slotValue);
+                        }
+                    }
+                }
+                if (urls.length > 0) {
+                    colorImages[color] = urls;
+                }
             }
 
             // Calculate total stock and get sizes from colorSizeStock
             let totalStock = 0;
             const allSizes = new Set();
 
-            Object.values(formData.colorSizeStock).forEach(sizeObj => {
+            Object.values(allSizeStock).forEach(sizeObj => {
                 Object.entries(sizeObj).forEach(([size, qty]) => {
                     totalStock += parseInt(qty) || 0;
                     if (qty > 0) allSizes.add(size);
                 });
             });
 
+            // Construct final product data
             const productData = {
                 ...formData,
                 price: parseFloat(formData.price),
                 sizes: Array.from(allSizes),
                 stock: totalStock,
-                colorSizeStock: formData.colorSizeStock,
-                image: imageUrl,
-                images: [imageUrl]
+                colorSizeStock: allSizeStock,
+                colorImages: colorImages,
+                // Primary image used for thumbnails/display
+                image: Object.values(colorImages)[0]?.[0] || '',
+                images: Object.values(colorImages)[0] || []
             };
-
-            // Check if SKU is provided and if we have uploaded images for it
-            if (formData.sku && uploadedImageMap[formData.sku]) {
-                const skuImages = uploadedImageMap[formData.sku];
-
-                // Check if product has color variants
-                if (formData.colors && formData.colors.length > 0) {
-                    // Product has colors - map color-specific images
-                    const colorImages = {};
-
-                    formData.colors.forEach(color => {
-                        const colorKey = color;
-                        const colorKeyLower = color.toLowerCase();
-
-                        // Try exact match first, then case-insensitive
-                        if (skuImages[colorKey]) {
-                            colorImages[color] = skuImages[colorKey];
-                        } else if (skuImages[colorKeyLower]) {
-                            colorImages[color] = skuImages[colorKeyLower];
-                        } else {
-                            // Check case-insensitive in all uploaded colors
-                            const foundColor = Object.keys(skuImages).find(
-                                key => key.toLowerCase() === colorKeyLower
-                            );
-                            if (foundColor) {
-                                colorImages[color] = skuImages[foundColor];
-                            }
-                        }
-                    });
-
-                    if (Object.keys(colorImages).length > 0) {
-                        productData.colorImages = colorImages;
-                        // Set primary images to first color's images
-                        const firstColor = formData.colors[0];
-                        productData.images = colorImages[firstColor] || [imageUrl];
-                        productData.image = productData.images[0] || imageUrl;
-                    }
-                } else {
-                    // No color variants - use default images
-                    if (skuImages['default']) {
-                        productData.images = skuImages['default'];
-                        productData.image = skuImages['default'][0];
-                    } else {
-                        // Fallback: use first available color's images
-                        const firstColorKey = Object.keys(skuImages)[0];
-                        if (firstColorKey) {
-                            productData.images = skuImages[firstColorKey];
-                            productData.image = skuImages[firstColorKey][0];
-                        }
-                    }
-                }
-            }
 
             if (editingProduct) {
                 await updateProduct(editingProduct.id, productData);
@@ -203,8 +178,27 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
             });
         }
 
+        // Populate manualImageSlots from colorImages or images
+        const initialSlots = {};
+        if (product.colorImages) {
+            Object.entries(product.colorImages).forEach(([color, urls]) => {
+                urls.forEach((url, idx) => {
+                    if (idx < 4) {
+                        initialSlots[`${color}__${idx + 1}`] = url;
+                    }
+                });
+            });
+        } else if (product.images) {
+            // Fallback for products without color-specific images
+            product.images.forEach((url, idx) => {
+                if (idx < 4) {
+                    initialSlots[`default__${idx + 1}`] = url;
+                }
+            });
+        }
+        setManualImageSlots(initialSlots);
+
         setFormData({
-            sku: product.sku || '',
             name: product.name,
             price: product.price,
             description: product.description,
@@ -227,7 +221,6 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
 
     const resetForm = () => {
         setFormData({
-            sku: '',
             name: '',
             price: '',
             description: '',
@@ -236,6 +229,7 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
             colorSizeStock: {},
             image: ''
         });
+        setManualImageSlots({});
         setColorsInput('');
         setImageFile(null);
         setImagePreview('');
@@ -686,21 +680,6 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                                             required
                                         />
                                     </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">SKU (Stock Keeping Unit)</label>
-                                        <input
-                                            type="text"
-                                            name="sku"
-                                            className="form-input"
-                                            value={formData.sku}
-                                            onChange={handleChange}
-                                            placeholder="e.g., 001, SHIRT-001, DBS-JEAN-01"
-                                        />
-                                        <small style={{ color: '#6B7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                                            💡 Used to link bulk-uploaded images (e.g., 001-Blue-1.jpg)
-                                        </small>
-                                    </div>
                                 </div>
 
                                 <div className="form-row">
@@ -928,25 +907,64 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Product Image</label>
-                                    <div className="image-upload-area">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            className="image-input"
-                                            id="image-upload"
-                                        />
-                                        <label htmlFor="image-upload" className="image-upload-label">
-                                            {imagePreview ? (
-                                                <img src={imagePreview} alt="Preview" className="image-preview" />
-                                            ) : (
-                                                <div className="upload-placeholder">
-                                                    <p>📷 Click to upload image</p>
-                                                    <span>PNG, JPG up to 5MB</span>
+                                    <label className="form-label">Variant Images (Max 4 per color)</label>
+                                    <div className="variant-images-management">
+                                        {(formData.colors.length > 0 ? formData.colors : ['default']).map(color => (
+                                            <div key={color} className="color-image-group">
+                                                <label className="color-group-label">{color === 'default' ? 'Default Images' : `${color} Images`}</label>
+                                                <div className="image-slots-grid">
+                                                    {[1, 2, 3, 4].map(slotIdx => {
+                                                        const slotKey = `${color}__${slotIdx}`;
+                                                        const slotValue = manualImageSlots[slotKey];
+                                                        const previewUrl = slotValue instanceof File ? URL.createObjectURL(slotValue) : slotValue;
+
+                                                        return (
+                                                            <div key={slotIdx} className="image-slot">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files[0];
+                                                                        if (file) {
+                                                                            setManualImageSlots(prev => ({
+                                                                                ...prev,
+                                                                                [slotKey]: file
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    className="slot-input-hidden"
+                                                                    id={`manual-slot-${slotKey}`}
+                                                                />
+                                                                <label htmlFor={`manual-slot-${slotKey}`} className="slot-upload-btn">
+                                                                    {previewUrl ? (
+                                                                        <div className="slot-preview-wrapper">
+                                                                            <img src={previewUrl} alt="Preview" className="slot-img-preview" />
+                                                                            <button
+                                                                                type="button"
+                                                                                className="remove-slot-img"
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                    const newSlots = { ...manualImageSlots };
+                                                                                    delete newSlots[slotKey];
+                                                                                    setManualImageSlots(newSlots);
+                                                                                }}
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="slot-placeholder">
+                                                                            <span>+</span>
+                                                                        </div>
+                                                                    )}
+                                                                </label>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            )}
-                                        </label>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
