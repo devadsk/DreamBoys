@@ -1,10 +1,13 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getMessages, updateMessage } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import './AdminMessages.css';
 
 const AdminMessages = () => {
+    const toast = useToast();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, pending, replied
@@ -45,9 +48,9 @@ const AdminMessages = () => {
             ));
             setSelectedMessage(null);
             setReplyText('');
-            alert('Reply sent successfully!');
+            toast.success('Reply sent successfully!');
         } else {
-            alert('Error sending reply: ' + result.error);
+            toast.error(`Error sending reply: ${result.error}`);
         }
         setSendingReply(false);
     };

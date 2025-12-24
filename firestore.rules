@@ -58,11 +58,19 @@ service cloud.firestore {
       // Only admins can delete products
       allow create, delete: if isAdmin();
       
-      // Allow stock updates by authenticated users (for orders)
+      // Allow updates by:
+      // 1. Admins (full access)
+      // 2. Authenticated users for stock updates (orders)
+      // 3. Authenticated users for rating updates (reviews)
       allow update: if isAdmin() || 
                     (isSignedIn() && 
-                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'colorSizeStock', 'updatedAt']));
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'colorSizeStock', 'updatedAt'])) ||
+                    (isSignedIn() && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewCount', 'updatedAt'])) ||
+                    (isSignedIn() && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewCount', 'stock', 'colorSizeStock', 'updatedAt']));
     }
+
     
     // ===== REVIEWS COLLECTION =====
     match /reviews/{reviewId} {
@@ -92,8 +100,16 @@ service cloud.firestore {
       allow create: if isSignedIn() && 
                       request.resource.data.userId == request.auth.uid;
       
-      // Only admins can update orders (for status changes)
-      allow update: if isAdmin();
+      // Admins can update any order (for status changes)
+      // Users can update their own orders for cancellation/refund requests
+      allow update: if isAdmin() ||
+                      (isSignedIn() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['cancellationRequestedAt', 'cancellationRequestId', 
+                                   'refundRequestedAt', 'refundRequestId', 'refundReason',
+                                   'replaceRequestedAt', 'replaceRequestId', 'replaceReason',
+                                   'status', 'updatedAt']));
       
       // Only admins can delete orders
       allow delete: if isAdmin();
@@ -132,6 +148,24 @@ service cloud.firestore {
       
       // Only admins can update (reply) or delete
       allow update, delete: if isAdmin();
+    }
+    
+    // ===== REFUND REQUESTS COLLECTION =====
+    match /refundRequests/{requestId} {
+      // Admins can read all requests
+      // Users can read their own requests
+      allow read: if isAdmin() || 
+                  (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Authenticated users can create requests for their own orders
+      allow create: if isSignedIn() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Only admins can update requests (approve/decline)
+      allow update: if isAdmin();
+      
+      // Only admins can delete requests
+      allow delete: if isAdmin();
     }
     
     // ===== CART ITEMS (if stored separately) =====

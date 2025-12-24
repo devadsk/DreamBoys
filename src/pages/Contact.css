@@ -538,66 +538,239 @@
 }
 
 /* Responsive Design */
+/* Responsive Design - Ultra Compact Mobile */
 @media (max-width: 1024px) {
     .contact-grid {
         grid-template-columns: 1fr;
     }
 
     .contact-info-card {
-        position: static;
+        margin-top: 30px;
     }
 }
 
 @media (max-width: 768px) {
     .contact-hero {
-        padding: 80px 0 60px;
+        padding: 60px 0 40px;
     }
 
     .contact-hero-title {
-        font-size: 2.5rem;
+        font-size: 2rem;
     }
 
     .contact-hero-subtitle {
-        font-size: 1.125rem;
+        font-size: 1rem;
+        padding: 0 15px;
     }
 
     .contact-form-card,
     .contact-info-card {
-        padding: 28px;
-    }
-
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-
-    .section-header-premium h2 {
-        font-size: 2rem;
-    }
-
-    .branches-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .map-content h3 {
-        font-size: 1.5rem;
-    }
-
-    .map-content p {
-        font-size: 1rem;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        /* Lighter shadow */
     }
 }
 
 @media (max-width: 480px) {
-    .contact-hero-title {
-        font-size: 2rem;
+    .contact-hero {
+        padding: 50px 0 30px;
+        text-align: center;
+        padding-left: 20px;
+        padding-right: 20px;
     }
 
+    .contact-hero-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .contact-hero-subtitle {
+        padding: 0 10px;
+        margin: 0 auto;
+        font-size: 0.95rem;
+    }
+
+    .contact-hero-title {
+        font-size: 1.75rem;
+        margin-bottom: 12px;
+    }
+
+    .contact-badge {
+        font-size: 0.75rem;
+        padding: 4px 12px;
+        margin-bottom: 16px;
+        align-self: center;
+    }
+
+    /* Contact Content Centering */
+    .contact-content {
+        padding: 20px 0;
+        display: flex;
+        /* Helps center the grid/content if needed */
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    .contact-grid {
+        gap: 30px;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    /* Cards */
     .contact-form-card,
     .contact-info-card {
-        padding: 24px;
+        padding: 24px 20px;
+        border-radius: 16px;
+        margin: 0 20px;
+        /* Side margins for mobile */
+        width: auto;
+        text-align: center;
+        /* Center generic text inside */
+    }
+
+    .contact-form-card h2,
+    .contact-info-card h3 {
+        text-align: center !important;
+        font-size: 1.5rem;
+        margin-bottom: 16px;
+    }
+
+    .form-description {
+        text-align: center;
+        margin-bottom: 24px;
+        font-size: 0.9rem;
+    }
+
+    /* Contact Info Items - Centering */
+    .contact-info-items {
+        align-items: center;
+        /* Center the flex items */
+    }
+
+    .contact-info-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .info-content p {
+        justify-content: center;
+    }
+
+    /* Form Fields */
+    .form-group label {
+        text-align: left;
+        /* Keep labels left aligned for readability or center? Usually left is better for inputs, but if card is centered... let's keep left for input usability but user asked for "section" centering. Titles are centered. */
+        align-self: flex-start;
+        font-size: 0.85rem;
+        margin-left: 4px;
+    }
+
+    .form-group {
+        text-align: left;
+        /* Inputs should type left-to-right */
+    }
+
+    .form-group input,
+    .form-group textarea {
+        padding: 12px;
+        font-size: 0.95rem;
+        border-radius: 8px;
+    }
+
+    .btn-submit-premium {
+        width: 100%;
+        padding: 14px;
+        font-size: 1rem;
+        border-radius: 12px;
+    }
+
+    /* Social Links Centering */
+    .social-connect {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .social-links-contact {
+        justify-content: center;
+    }
+
+    /* Branches */
+    .branches-section {
+        padding: 40px 0;
+    }
+
+    .section-header-premium {
+        text-align: center;
+        padding: 0 20px;
+        margin-bottom: 30px;
+    }
+
+    .section-header-premium h2 {
+        font-size: 1.5rem;
+    }
+
+    .section-header-premium p {
+        font-size: 0.95rem;
+    }
+
+    .branches-grid {
+        padding: 0 20px;
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
 
     .branch-card {
-        padding: 24px;
+        padding: 24px 20px;
+        border-radius: 16px;
+        text-align: center;
+        /* Center branch card content */
+    }
+
+    .branch-header {
+        margin-bottom: 16px;
+        flex-direction: column;
+        /* Stack icon and title */
+        justify-content: center;
+        text-align: center;
+    }
+
+    .branch-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 8px;
+    }
+
+    .branch-header h3 {
+        font-size: 1.25rem;
+    }
+
+    .branch-details {
+        align-items: center;
+        /* Center details */
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .branch-detail-item {
+        justify-content: center;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .branch-cta {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .map-section {
+        height: 250px;
     }
 }

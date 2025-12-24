@@ -74,13 +74,11 @@ export const WishlistProvider = ({ children }) => {
 
     /**
      * Add item to wishlist (requires authentication)
-     * Now stores selected size and color
+     * Stores only product information without size/color variants
      */
-    const addToWishlist = (product, selectedSize = null, selectedColor = null) => {
+    const addToWishlist = (product) => {
         console.log('❤️ addToWishlist called with:', {
             productId: product?.id,
-            selectedSize,
-            selectedColor,
             currentUser: currentUser?.uid
         });
 
@@ -95,11 +93,9 @@ export const WishlistProvider = ({ children }) => {
                 console.log('Product already in wishlist');
                 return prev;
             }
-            console.log('Adding product to wishlist with variants');
+            console.log('Adding product to wishlist');
             return [...prev, {
                 ...product,
-                selectedSize: selectedSize || product.sizes?.[0] || 'M',
-                selectedColor: selectedColor || product.colors?.[0] || 'Black',
                 addedAt: new Date().toISOString()
             }];
         });

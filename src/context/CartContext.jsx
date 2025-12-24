@@ -203,7 +203,7 @@ export const CartProvider = ({ children }) => {
     const moveToWishlist = (item, addToWishlistFn) => {
         if (!currentUser) return;
 
-        // Add to wishlist with size and color from cart item
+        // Add to wishlist without size and color
         const productData = {
             id: item.id,
             name: item.name,
@@ -211,11 +211,16 @@ export const CartProvider = ({ children }) => {
             originalPrice: item.originalPrice,
             image: item.image,
             category: item.category,
-            stock: item.stock
+            stock: item.stock,
+            sizes: item.sizes,
+            colors: item.colors,
+            images: item.images,
+            colorImages: item.colorImages,
+            colorSizeStock: item.colorSizeStock
         };
 
-        // Pass size and color from cart item to wishlist
-        addToWishlistFn(productData, item.selectedSize, item.selectedColor);
+        // Add to wishlist (no size/color)
+        addToWishlistFn(productData);
 
         // Remove from cart
         removeFromCart(item.id, item.selectedSize, item.selectedColor);

@@ -90,34 +90,34 @@
     box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
 }
 
-/* Wishlist Grid */
+/* Wishlist Grid - 4 Columns like Myntra */
 .wishlist-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 32px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
 }
 
 .wishlist-card {
     position: relative;
     background: var(--color-white);
-    border-radius: 16px;
+    border-radius: 8px;
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .wishlist-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
 .remove-btn {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 36px;
-    height: 36px;
-    background: var(--color-white);
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
     border: none;
     border-radius: 50%;
     display: flex;
@@ -125,18 +125,25 @@
     justify-content: center;
     cursor: pointer;
     z-index: 2;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 24px;
+    line-height: 1;
+    color: #374151;
+    font-weight: 400;
+    padding: 0;
+    font-family: Arial, sans-serif;
 }
 
 .remove-btn:hover {
     background: #dc2626;
-    color: var(--color-white);
-    transform: scale(1.1);
+    color: #ffffff;
+    transform: scale(1.08);
+    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.4);
 }
 
-.remove-btn svg {
-    stroke-width: 2.5;
+.remove-btn:active {
+    transform: scale(0.95);
 }
 
 .product-link {
@@ -148,7 +155,7 @@
 .product-image {
     position: relative;
     width: 100%;
-    height: 320px;
+    height: 300px;
     overflow: hidden;
     background: var(--color-background);
 }
@@ -166,49 +173,49 @@
 
 .discount-badge {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: 6px;
+    left: 6px;
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: var(--color-white);
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.875rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.6875rem;
     font-weight: 700;
     z-index: 1;
 }
 
 .stock-badge {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: 6px;
+    left: 6px;
     background: rgba(0, 0, 0, 0.8);
     color: var(--color-white);
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.875rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.6875rem;
     font-weight: 600;
 }
 
 .product-info {
-    padding: 20px;
+    padding: 8px 10px 10px 10px;
 }
 
 .category {
     display: inline-block;
     color: var(--color-primary);
-    font-size: 0.8125rem;
+    font-size: 0.625rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .product-info h3 {
-    font-size: 1.125rem;
+    font-size: 0.875rem;
     font-weight: 700;
     color: var(--color-text);
-    margin-bottom: 12px;
-    line-height: 1.4;
+    margin-bottom: 6px;
+    line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -219,115 +226,434 @@
 .price-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin-bottom: 0;
 }
 
 .price {
-    font-size: 1.5rem;
+    font-size: 1.0625rem;
     font-weight: 800;
     color: var(--color-text);
 }
 
 .original-price {
-    font-size: 1rem;
+    font-size: 0.8125rem;
     color: var(--color-text-secondary);
     text-decoration: line-through;
 }
 
-.product-colors {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.color-dot {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid var(--color-white);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
-
-.color-dot:hover {
-    transform: scale(1.2);
-}
-
-.more-colors {
-    font-size: 0.75rem;
-    color: var(--color-text-secondary);
-    font-weight: 600;
-}
-
 .card-actions {
-    padding: 0 20px 20px;
+    padding: 0 10px 10px;
 }
 
-.view-btn {
-    display: block;
+.move-to-cart-btn {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: var(--color-white);
-    text-align: center;
-    text-decoration: none;
-    border-radius: 8px;
+    padding: 7px;
+    background: transparent;
+    color: #3b82f6;
+    border: 1.5px solid #3b82f6;
+    border-radius: 5px;
+    font-size: 0.625rem;
     font-weight: 600;
+    cursor: pointer;
     transition: all 0.3s ease;
+    text-align: center;
 }
 
-.view-btn:hover {
+.move-to-cart-btn:hover:not(:disabled) {
+    background: #3b82f6;
+    color: white;
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-/* Responsive */
+.move-to-cart-btn:disabled {
+    border-color: #9ca3af;
+    color: #9ca3af;
+    cursor: not-allowed;
+    background: #f9fafb;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* Large Desktop */
+@media (max-width: 1200px) {
+    .wishlist-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+    }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .wishlist-page {
+        padding: 60px 0 50px;
+    }
+
+    .wishlist-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    .product-image {
+        height: 260px;
+    }
+
+    .product-info {
+        padding: 10px;
+    }
+
+    .card-actions {
+        padding: 0 10px 10px;
+    }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
     .wishlist-page {
-        padding: 60px 0 40px;
+        padding: 40px 0 30px;
     }
 
     .wishlist-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
     }
 
     .wishlist-header h1 {
-        font-size: 2rem;
+        font-size: 1.75rem;
+        margin-bottom: 4px;
+    }
+
+    .wishlist-header p {
+        font-size: 0.875rem;
     }
 
     .clear-wishlist-btn {
         width: 100%;
+        padding: 10px 20px;
+        font-size: 0.875rem;
     }
 
     .wishlist-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 24px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .wishlist-card {
+        border-radius: 6px;
+    }
+
+    /* Large Visible Remove Button */
+    .remove-btn {
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    }
+
+    .remove-btn svg {
+        width: 13px;
+        height: 13px;
+        stroke-width: 2.5;
     }
 
     .product-image {
-        height: 280px;
+        height: 200px;
+    }
+
+    .discount-badge,
+    .stock-badge {
+        top: 6px;
+        left: 6px;
+        padding: 3px 8px;
+        font-size: 0.6875rem;
+    }
+
+    .product-info {
+        padding: 10px;
+    }
+
+    .category {
+        font-size: 0.625rem;
+        margin-bottom: 4px;
+    }
+
+    .product-info h3 {
+        font-size: 0.875rem;
+        margin-bottom: 6px;
+    }
+
+    .price {
+        font-size: 1rem;
+    }
+
+    .original-price {
+        font-size: 0.8125rem;
+    }
+
+    .card-actions {
+        padding: 0 10px 10px;
+    }
+
+    .move-to-cart-btn {
+        width: 100%;
+        padding: 6px;
+        font-size: 0.625rem;
+        border-width: 1.5px;
     }
 }
 
-@media (max-width: 480px) {
+/* Mobile */
+@media (max-width: 768px) {
+    .wishlist-page {
+        padding: 40px 0 30px;
+    }
+
+    .wishlist-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+    }
+
     .wishlist-header h1 {
         font-size: 1.75rem;
+        margin-bottom: 4px;
+    }
+
+    .wishlist-header p {
+        font-size: 0.875rem;
+    }
+
+    .clear-wishlist-btn {
+        width: 100%;
+        padding: 10px 20px;
+        font-size: 0.875rem;
     }
 
     .wishlist-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
     }
 
-    .wishlist-empty h2 {
+    .wishlist-card {
+        border-radius: 10px;
+    }
+
+    /* More Visible Remove Button */
+    .remove-btn {
+        top: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        opacity: 0.9;
+    }
+
+    .remove-btn svg {
+        width: 12px;
+        height: 12px;
+        stroke-width: 2.5;
+    }
+
+    .product-image {
+        height: 200px;
+    }
+
+    .discount-badge,
+    .stock-badge {
+        top: 8px;
+        left: 8px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+
+    .product-info {
+        padding: 12px;
+    }
+
+    .category {
+        font-size: 0.6875rem;
+        margin-bottom: 6px;
+    }
+
+    .product-info h3 {
+        font-size: 0.9375rem;
+        margin-bottom: 8px;
+    }
+
+    .price {
+        font-size: 1.125rem;
+    }
+
+    .original-price {
+        font-size: 0.875rem;
+    }
+
+
+    /* Large Visible Remove Button */
+    .remove-btn {
+        top: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .remove-btn svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 2.5;
+    }
+
+    .card-actions {
+        padding: 0 12px 12px;
+        gap: 8px;
+    }
+
+    .move-to-cart-btn {
+        padding: 7px 7px;
+        font-size: 0.6875rem;
+        border-width: 1.5px;
+    }
+
+    .view-btn {
+        padding: 7px;
+        font-size: 0.75rem;
+    }
+}
+
+/* Small Mobile */
+@media (max-width: 640px) {
+    .wishlist-page {
+        padding: 30px 0 20px;
+    }
+
+    .wishlist-header h1 {
         font-size: 1.5rem;
     }
 
-    .wishlist-empty p {
+    .wishlist-grid {
+        gap: 10px;
+    }
+
+    .remove-btn {
+        top: 6px;
+        right: 6px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .remove-btn svg {
+        width: 14px;
+        height: 14px;
+        stroke-width: 2.5;
+    }
+
+    .product-image {
+        height: 180px;
+    }
+
+    .product-info {
+        padding: 10px;
+    }
+
+    .product-info h3 {
+        font-size: 0.875rem;
+    }
+
+    .price {
+        font-size: 1.0625rem;
+    }
+
+    .card-actions {
+        padding: 0 10px 10px;
+        gap: 6px;
+    }
+
+    .move-to-cart-btn {
+        padding: 6px 6px;
+        font-size: 0.625rem;
+    }
+
+    .view-btn {
+        padding: 6px;
+        font-size: 0.6875rem;
+    }
+}
+
+/* Extra Small Mobile */
+@media (max-width: 480px) {
+    .wishlist-page {
+        padding: 20px 0 15px;
+    }
+
+    .wishlist-header h1 {
+        font-size: 1.375rem;
+    }
+
+    .wishlist-grid {
+        gap: 8px;
+    }
+
+    .remove-btn {
+        top: 5px;
+        right: 5px;
+        width: 26px;
+        height: 26px;
+    }
+
+    .remove-btn svg {
+        width: 13px;
+        height: 13px;
+        stroke-width: 2.8;
+    }
+
+    .product-image {
+        height: 160px;
+    }
+
+    .product-info {
+        padding: 8px;
+    }
+
+    .product-info h3 {
+        font-size: 0.8125rem;
+    }
+
+    .price {
         font-size: 1rem;
+    }
+
+    .card-actions {
+        padding: 0 8px 8px;
+        gap: 5px;
+    }
+
+    .move-to-cart-btn {
+        padding: 5px 5px;
+        font-size: 0.5625rem;
+    }
+
+    .view-btn {
+        padding: 5px;
+        font-size: 0.625rem;
+    }
+
+    .wishlist-empty h2 {
+        font-size: 1.375rem;
+    }
+
+    .wishlist-empty p {
+        font-size: 0.875rem;
     }
 }
 
@@ -340,12 +666,12 @@
 
 .move-to-cart-btn {
     flex: 1;
-    padding: 12px 12px;
+    padding: 10px 10px;
     background: transparent;
     color: #3b82f6;
     border: 2px solid #3b82f6;
-    border-radius: 8px;
-    font-size: 13px;
+    border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;

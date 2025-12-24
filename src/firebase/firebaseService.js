@@ -526,11 +526,13 @@ export const getAllOrders = async () => {
     }
 };
 
-// Update order status (Admin only)
-export const updateOrderStatus = async (orderId, status) => {
+
+// Update order status (Admin only or user for cancellation)
+export const updateOrderStatus = async (orderId, status, additionalData = {}) => {
     try {
         await updateDoc(doc(db, 'orders', orderId), {
             status,
+            ...additionalData,
             updatedAt: new Date().toISOString()
         });
         return { success: true };
@@ -538,6 +540,47 @@ export const updateOrderStatus = async (orderId, status) => {
         return { success: false, error: error.message };
     }
 };
+
+// Create refund/replace request
+export const createRefundRequest = async (requestData) => {
+    try {
+        const docRef = await addDoc(collection(db, 'refundRequests'), {
+            ...requestData,
+            status: 'pending',
+            createdAt: requestData.createdAt || new Date().toISOString()
+        });
+        return { success: true, id: docRef.id };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// Get all requests (Admin only)
+export const getAllRequests = async () => {
+    try {
+        const requestsRef = collection(db, 'refundRequests');
+        const snapshot = await getDocs(requestsRef);
+        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { success: true, data: requests };
+    } catch (error) {
+        console.error('Error fetching requests:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Update request status (Admin only)
+export const updateRequestStatus = async (requestId, updateData) => {
+    try {
+        await updateDoc(doc(db, 'refundRequests', requestId), {
+            ...updateData,
+            updatedAt: new Date().toISOString()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
 
 // Get all users (Admin only)
 export const getAllUsers = async () => {

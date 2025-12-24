@@ -1,16 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useAuth } from '../context/AuthContext';
 import { validateCartStock } from '../firebase/firebaseService';
 import { motion } from 'framer-motion';
 import './Cart.css';
 
 const Cart = () => {
+    const navigate = useNavigate();
+    const { currentUser } = useAuth();
     const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart, moveToWishlist } = useCart();
     const { addToWishlist } = useWishlist();
     const [validatedCart, setValidatedCart] = useState([]);
     const [isValidating, setIsValidating] = useState(true);
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!currentUser) {
+            navigate('/login', { state: { from: '/cart' } });
+        }
+    }, [currentUser, navigate]);
+
+    // Don't render anything while checking auth
+    if (!currentUser) {
+        return null;
+    }
 
     // Validate cart stock on mount and when cart changes
     useEffect(() => {

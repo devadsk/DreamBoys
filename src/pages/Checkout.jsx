@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
     getUserData,
     getSavedAddresses,
@@ -18,6 +19,7 @@ const Checkout = () => {
     const navigate = useNavigate();
     const { cart, getCartTotal, clearCart } = useCart();
     const { currentUser } = useAuth();
+    const toast = useToast();
 
     const cartTotal = getCartTotal();
 
@@ -151,7 +153,7 @@ const Checkout = () => {
 
         // Basic validation
         if (!shippingInfo.fullName || !shippingInfo.street || !shippingInfo.city || !shippingInfo.zipCode) {
-            alert('Please fill in all required fields');
+            toast.warning('Please fill in all required fields');
             return;
         }
 
@@ -195,7 +197,7 @@ const Checkout = () => {
             if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone ||
                 !shippingInfo.street || !shippingInfo.city || !shippingInfo.state ||
                 !shippingInfo.zipCode || !shippingInfo.country) {
-                alert('Please ensure all shipping information is filled out.');
+                toast.warning('Please ensure all shipping information is filled out.');
                 setProcessing(false);
                 return;
             }
@@ -231,21 +233,21 @@ const Checkout = () => {
                     clearCart();
                     navigate(`/order-success/${res.orderNumber}`);
                 } else {
-                    alert(`Order Failed: ${res.error}`);
+                    toast.error(`Order Failed: ${res.error}`);
                 }
             }
             // CASE 2: Online Payment (Razorpay with Cloud Function)
             else {
                 const isLoaded = await loadRazorpay();
                 if (!isLoaded) {
-                    alert('Razorpay SDK failed to load. Are you online?');
+                    toast.error('Razorpay SDK failed to load. Are you online?');
                     setProcessing(false);
                     return;
                 }
 
                 // Verify Razorpay is loaded
                 if (!window.Razorpay) {
-                    alert('Razorpay SDK loaded but window.Razorpay is undefined. Please check your internet connection.');
+                    toast.error('Razorpay SDK loaded but window.Razorpay is undefined. Please check your internet connection.');
                     setProcessing(false);
                     return;
                 }
@@ -266,14 +268,16 @@ const Checkout = () => {
                     console.log('Razorpay order created:', razorpayOrderData.orderId);
 
                     // Step 2: Open Razorpay checkout with order_id
+                    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY || "rzp_test_RtlhgJ14PsoRoN";
                     const options = {
-                        key: "rzp_test_RtlhgJ14PsoRoN", // ⚠️ USER MUST REPLACE THIS
-                        order_id: razorpayOrderData.orderId, // Server-generated order ID
+                        key: razorpayKey,
+                        order_id: razorpayOrderData.orderId,
                         amount: razorpayOrderData.amount,
                         currency: razorpayOrderData.currency,
                         name: "DreamBoys Fashion",
-                        description: "Order Payment",
-                        // image: "/logo.png", // Add logo if available
+                        description: "Payment for Order",
+                        // FIXED: Image must be a public HTTPS URL (Razorpay cannot access localhost images due to CORS/Security)
+                        image: "https://placehold.co/250x250/000000/ffffff?text=DreamBoys",
                         handler: async function (response) {
                             try {
                                 console.log('Payment successful:', response);
@@ -307,11 +311,11 @@ const Checkout = () => {
                                     clearCart();
                                     navigate(`/order-success/${res.orderNumber}`);
                                 } else {
-                                    alert(`Payment successful but Order Creation Failed: ${res.error}`);
+                                    toast.error(`Payment successful but Order Creation Failed: ${res.error}`);
                                 }
                             } catch (err) {
                                 console.error("Post-payment error:", err);
-                                alert(`An error occurred after payment: ${err.message}`);
+                                toast.error(`An error occurred after payment: ${err.message}`);
                             }
                         },
                         prefill: {
@@ -332,20 +336,20 @@ const Checkout = () => {
 
                     const paymentObject = new window.Razorpay(options);
                     paymentObject.on('payment.failed', function (response) {
-                        alert(`Payment Failed: ${response.error.description}`);
+                        toast.error(`Payment Failed: ${response.error.description}`);
                         setProcessing(false);
                     });
                     paymentObject.open();
                 } catch (cloudFunctionError) {
                     console.error("Cloud Function Error:", cloudFunctionError);
-                    alert(`Failed to initiate payment: ${cloudFunctionError.message}`);
+                    toast.error(`Failed to initiate payment: ${cloudFunctionError.message}`);
                     setProcessing(false);
                 }
             }
 
         } catch (error) {
             console.error("Order processing error:", error);
-            alert('An error occurred while processing your order');
+            toast.error('An error occurred while processing your order');
             setProcessing(false);
         } finally {
             if (paymentMethod === 'cod') {

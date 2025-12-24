@@ -9,9 +9,11 @@ import {
     updateCategory,
     deleteCategory
 } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import './AdminContent.css';
 
 const AdminContent = () => {
+    const toast = useToast();
     const [activeTab, setActiveTab] = useState('testimonials');
     const [testimonials, setTestimonials] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -59,17 +61,17 @@ const AdminContent = () => {
                 if (editingItem) {
                     const result = await updateTestimonial(editingItem.id, formData);
                     if (result.success) {
-                        alert('Testimonial updated successfully!');
+                        toast.success('Testimonial updated successfully!');
                     } else {
-                        alert('Error updating testimonial: ' + result.error);
+                        toast.error(`Error updating testimonial: ${result.error}`);
                         return;
                     }
                 } else {
                     const result = await addTestimonial(formData);
                     if (result.success) {
-                        alert('Testimonial added successfully!');
+                        toast.success('Testimonial added successfully!');
                     } else {
-                        alert('Error adding testimonial: ' + result.error);
+                        toast.error(`Error adding testimonial: ${result.error}`);
                         return;
                     }
                 }
@@ -77,9 +79,9 @@ const AdminContent = () => {
                 if (editingItem) {
                     const result = await updateCategory(editingItem.id, formData);
                     if (result.success) {
-                        alert('Category updated successfully!');
+                        toast.success('Category updated successfully!');
                     } else {
-                        alert('Error updating category: ' + result.error);
+                        toast.error(`Error updating category: ${result.error}`);
                         return;
                     }
                 }
@@ -91,7 +93,7 @@ const AdminContent = () => {
             loadData();
         } catch (error) {
             console.error('Error in handleSubmit:', error);
-            alert('An error occurred: ' + error.message);
+            toast.error(`An error occurred: ${error.message}`);
         }
     };
 

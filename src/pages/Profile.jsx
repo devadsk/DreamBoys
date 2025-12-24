@@ -95,7 +95,9 @@ const Profile = () => {
                         </div>
                         <h2>{userData?.displayName || 'User'}</h2>
                         <p>{currentUser?.email}</p>
-                        <p className="profile-role">Role: {userData?.role || 'Customer'}</p>
+                        {userData?.role === 'admin' && (
+                            <p className="profile-role">Role: {userData.role}</p>
+                        )}
                         <p className="profile-member-since">
                             Member since {new Date(userData?.createdAt || Date.now()).toLocaleDateString()}
                         </p>

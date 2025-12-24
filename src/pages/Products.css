@@ -79,6 +79,10 @@
     /* Fit in viewport */
     overflow-y: auto;
     /* Scroll internally if too tall */
+    overflow-x: hidden;
+    /* Prevent horizontal scroll */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .products-sidebar::-webkit-scrollbar {
@@ -135,6 +139,9 @@
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
     border-bottom: 1px solid #e5e7eb;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .filter-section:last-of-type {
@@ -581,20 +588,318 @@
     }
 }
 
+/* ===== MOBILE FILTER STYLES ===== */
+
+/* Filter Toggle Button - Hidden on desktop */
+.filter-toggle-btn {
+    display: none;
+}
+
+/* Filter Close Button - Hidden on desktop */
+.filter-close-btn {
+    display: none;
+}
+
+/* Filter Backdrop */
+.filter-backdrop {
+    display: none;
+}
+
+/* Controls Left Container */
+.controls-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* Tablets and below */
+@media (max-width: 1024px) {
+    .products-sidebar {
+        width: 260px;
+    }
+
+    .products-main {
+        padding: 0 1.5rem;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.25rem;
+    }
+}
+
+/* Mobile - Filter Drawer */
 @media (max-width: 900px) {
+
+    /* Show filter toggle button */
+    .filter-toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .filter-toggle-btn:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+    }
+
+    .filter-toggle-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Hide sidebar by default on mobile */
+    .products-sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        bottom: 0;
+        width: 320px;
+        max-width: 85vw;
+        height: 100vh;
+        max-height: 100vh;
+        background: #ffffff;
+        z-index: 1000;
+        padding: 0;
+        margin: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+        overflow-y: auto;
+        overflow-x: hidden;
+        transition: left 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    /* Show sidebar when filter-open */
+    .products-sidebar.filter-open {
+        left: 0;
+    }
+
+    /* Show close button on mobile */
+    .filter-close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: #6b7280;
+        transition: color 0.2s ease;
+    }
+
+    .filter-close-btn:hover {
+        color: #111827;
+    }
+
+    /* Adjust sidebar header for mobile */
+    .sidebar-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+    }
+
+    .sidebar-header h2 {
+        font-size: 16px;
+    }
+
+    /* Add padding to filter sections */
+    .products-sidebar .filter-section {
+        padding: 0 1.5rem;
+    }
+
+    .products-sidebar .reset-btn {
+        margin: 1.5rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Show backdrop when filter is open */
+    .filter-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Adjust layout */
     .products-layout {
-        flex-direction: column;
+        flex-direction: row;
+        gap: 0;
+    }
+
+    .products-main {
+        flex: 1;
+        padding: 0 1rem;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+
+    .product-card {
+        padding: 0.75rem;
+    }
+
+    .product-info h3 {
+        font-size: 14px;
+    }
+
+    .products-controls {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .results-count {
+        font-size: 14px;
+    }
+
+    .sort-select {
+        font-size: 13px;
+        padding: 8px 12px;
+    }
+}
+
+/* Small mobile */
+@media (max-width: 640px) {
+    .products-header h1 {
+        font-size: 2rem;
+    }
+
+    .products-header p {
+        font-size: 1rem;
+    }
+
+    .products-main {
+        padding: 0 0.75rem;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .product-card {
+        padding: 0.5rem;
+    }
+
+    .product-info h3 {
+        font-size: 13px;
+    }
+
+    .price {
+        font-size: 15px;
+    }
+
+    .category {
+        font-size: 11px;
+    }
+
+    .filter-toggle-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .results-count {
+        font-size: 13px;
+    }
+
+    .sort-select {
+        font-size: 12px;
+        padding: 6px 10px;
     }
 
     .products-sidebar {
-        width: 100%;
-        position: static;
-        max-height: none;
-        margin-bottom: 2rem;
+        width: 280px;
+    }
+}
+
+/* Extra small mobile */
+@media (max-width: 480px) {
+    .products-header {
+        padding: 1.5rem 0 1rem;
+    }
+
+    .products-header h1 {
+        font-size: 1.75rem;
+    }
+
+    .products-main {
+        padding: 0 0.5rem;
+    }
+
+    .products-grid {
+        gap: 0.5rem;
+    }
+
+    .product-card {
+        padding: 0.4rem;
+    }
+
+    .product-info {
+        padding: 0.5rem;
+    }
+
+    .product-info h3 {
+        font-size: 12px;
+    }
+
+    .price {
+        font-size: 14px;
+    }
+
+    .filter-toggle-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        gap: 6px;
+    }
+
+    .filter-toggle-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .results-count {
+        display: none;
     }
 
     .products-sidebar {
-        position: static;
-        top: auto;
+        width: 260px;
     }
+}
+
+/* Prevent body scroll when filter is open */
+body.filter-open {
+    overflow: hidden;
 }

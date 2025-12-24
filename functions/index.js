@@ -158,3 +158,133 @@ exports.verifyRazorpayPayment = onCall(async (request) => {
         throw new Error(error.message || 'Failed to verify payment');
     }
 });
+
+/**
+ * Process Refund through Razorpay
+ * Callable function to process refunds for cancelled orders
+ */
+exports.processRefund = onCall(async (request) => {
+    try {
+        // Verify user is authenticated
+        if (!request.auth) {
+            throw new Error('User must be authenticated to process refunds');
+        }
+
+        const { paymentId, amount, notes } = request.data;
+
+        // Validate input
+        if (!paymentId || !amount) {
+            throw new Error('Payment ID and amount are required');
+        }
+
+        // Create refund through Razorpay API
+        const refund = await razorpay.payments.refund(paymentId, {
+            amount: amount, // Amount in paise
+            speed: 'normal', // 'normal' or 'optimum'
+            notes: notes || {},
+            receipt: `refund_${Date.now()}`
+        });
+
+        console.log('Refund processed:', refund.id);
+
+        return {
+            success: true,
+            refundId: refund.id,
+            status: refund.status,
+            amount: refund.amount,
+            currency: refund.currency,
+            createdAt: refund.created_at
+        };
+    } catch (error) {
+        console.error('Refund processing error:', error);
+        throw new Error(error.message || 'Failed to process refund');
+    }
+});
+
+/**
+ * Get Refund Status
+ * Callable function to check the status of a refund
+ */
+exports.getRefundStatus = onCall(async (request) => {
+    try {
+        // Verify user is authenticated
+        if (!request.auth) {
+            throw new Error('User must be authenticated');
+        }
+
+        const { refundId } = request.data;
+
+        if (!refundId) {
+            throw new Error('Refund ID is required');
+        }
+
+        // Fetch refund details from Razorpay
+        const refund = await razorpay.refunds.fetch(refundId);
+
+        return {
+            success: true,
+            status: refund.status,
+            amount: refund.amount,
+            currency: refund.currency,
+            createdAt: refund.created_at,
+            processedAt: refund.processed_at
+        };
+    } catch (error) {
+        console.error('Error fetching refund status:', error);
+        throw new Error(error.message || 'Failed to fetch refund status');
+    }
+});
+
+/**
+ * Webhook handler for Razorpay refund events
+ * Updates order status when refund is processed
+ */
+const { onRequest } = require('firebase-functions/v2/https');
+
+exports.razorpayRefundWebhook = onRequest(async (req, res) => {
+    const crypto = require('crypto');
+
+    // Verify webhook signature
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'YOUR_WEBHOOK_SECRET';
+    const signature = req.headers['x-razorpay-signature'];
+    const body = JSON.stringify(req.body);
+
+    const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(body)
+        .digest('hex');
+
+    if (signature !== expectedSignature) {
+        console.error('Invalid webhook signature');
+        return res.status(400).send('Invalid signature');
+    }
+
+    const event = req.body.event;
+    const payload = req.body.payload.refund.entity;
+
+    try {
+        if (event === 'refund.processed') {
+            // Update order in Firestore
+            const ordersRef = admin.firestore().collection('orders');
+            const snapshot = await ordersRef
+                .where('paymentDetails.razorpay_payment_id', '==', payload.payment_id)
+                .get();
+
+            if (!snapshot.empty) {
+                const orderDoc = snapshot.docs[0];
+                await orderDoc.ref.update({
+                    refundStatus: 'completed',
+                    refundCompletedAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+
+                console.log(`Order ${orderDoc.id} refund completed`);
+            }
+        }
+
+        res.status(200).send('Webhook processed');
+    } catch (error) {
+        console.error('Webhook processing error:', error);
+        res.status(500).send('Webhook processing failed');
+    }
+});

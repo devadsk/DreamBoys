@@ -4,6 +4,7 @@ import { getProduct, getProducts, getProductReviews, addReview, deleteReview } f
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useToast } from '../context/ToastContext';
 import InlineLoader from '../components/InlineLoader';
 import './ProductDetail.css';
 
@@ -13,6 +14,7 @@ const ProductDetail = () => {
     const { currentUser, userData } = useAuth();
     const { addToCart, getCartQuantity } = useCart();
     const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
+    const toast = useToast();
 
     const [product, setProduct] = useState(null);
     const [relatedProducts, setRelatedProducts] = useState([]);
@@ -39,6 +41,46 @@ const ProductDetail = () => {
         window.scrollTo(0, 0);
         setShowQuantity(false);
     }, [id]);
+
+    // Swipe handling for mobile
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            // Swipe left - go to next image or loop to first
+            if (selectedImage < productImages.length - 1) {
+                setSelectedImage(selectedImage + 1);
+            } else {
+                setSelectedImage(0); // Loop back to first image
+            }
+        }
+        if (isRightSwipe) {
+            // Swipe right - go to previous image or loop to last
+            if (selectedImage > 0) {
+                setSelectedImage(selectedImage - 1);
+            } else {
+                setSelectedImage(productImages.length - 1); // Loop to last image
+            }
+        }
+    };
 
     const loadProduct = async () => {
         const result = await getProduct(id);
@@ -121,15 +163,15 @@ const ProductDetail = () => {
             const result = await deleteReview(reviewId, id);
 
             if (result.success) {
-                alert('Review deleted successfully');
+                toast.success('Review deleted successfully');
                 await loadReviews(id);
                 // Optionally reload product if rating aggregation is on product document
                 // await loadProduct(); 
             } else {
-                alert('Error deleting review: ' + result.error);
+                toast.error(`Error deleting review: ${result.error}`);
             }
         } catch (error) {
-            alert('Error deleting review: ' + error.message);
+            toast.error(`Error deleting review: ${error.message}`);
         }
     };
 
@@ -137,12 +179,12 @@ const ProductDetail = () => {
         e.preventDefault();
 
         if (!currentUser) {
-            alert('Please login to submit a review');
+            toast.info('Please login to submit a review');
             return;
         }
 
         if (!reviewComment.trim()) {
-            alert('Please write a review comment');
+            toast.warning('Please write a review comment');
             return;
         }
 
@@ -166,17 +208,17 @@ const ProductDetail = () => {
                 setShowReviewForm(false);
 
                 // Show success message
-                alert('Review submitted successfully! Thank you for your feedback.');
+                toast.success('Review submitted! Thank you for your feedback.');
 
                 // Wait for Firestore to update, then reload
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 await loadReviews(id);
                 // await loadProduct();
             } else {
-                alert('Error submitting review: ' + result.error);
+                toast.error(`Error submitting review: ${result.error}`);
             }
         } catch (error) {
-            alert('Error submitting review: ' + error.message);
+            toast.error(`Error submitting review: ${error.message}`);
         } finally {
             setSubmittingReview(false);
         }
@@ -188,13 +230,13 @@ const ProductDetail = () => {
         // Check if user is logged in
         if (!currentUser) {
             console.log('❌ User not logged in, redirecting to login');
-            alert('Please login to add items to your cart');
+            toast.info('Please login to add items to your cart');
             navigate('/login', { state: { from: `/product/${id}` } });
             return;
         }
 
         if (!selectedSize) {
-            alert('Please select a size');
+            toast.warning('Please select a size');
             return;
         }
 
@@ -227,7 +269,7 @@ const ProductDetail = () => {
     const handleToggleWishlist = () => {
         // Check if user is logged in
         if (!currentUser) {
-            alert('Please login to add items to your wishlist');
+            toast.info('Please login to add items to your wishlist');
             navigate('/login', { state: { from: `/product/${id}` } });
             return;
         }
@@ -236,8 +278,8 @@ const ProductDetail = () => {
         if (isInWishlist(product.id)) {
             removeFromWishlist(product.id);
         } else {
-            // Add to wishlist with selected size and color
-            addToWishlist(product, selectedSize, selectedColor);
+            // Add to wishlist without size and color
+            addToWishlist(product);
         }
     };
 
@@ -323,18 +365,28 @@ const ProductDetail = () => {
         <div className="product-detail-page">
             <div className="container">
                 {/* Header / Nav (Hidden to match image look, or kept minimal) */}
-                <div style={{ height: '40px' }}></div>
+                <button className="back-button" onClick={() => navigate(-1)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Back
+                </button>
 
                 <div className="product-detail-layout">
                     {/* Left Side - Image Gallery */}
                     <div className="left-column">
-                        <div className="main-image-container">
+                        <div
+                            className="main-image-container"
+                            onTouchStart={onTouchStart}
+                            onTouchMove={onTouchMove}
+                            onTouchEnd={onTouchEnd}
+                        >
                             <img
                                 src={productImages[selectedImage]}
                                 alt={product.name}
                                 className="main-product-image"
                             />
-                            {/* Thumbnails overlaid at bottom or below as per design */}
+                            {/* Thumbnails for desktop/tablet */}
                             <div className="thumbnails-row">
                                 {productImages.map((img, idx) => (
                                     <div
@@ -350,6 +402,18 @@ const ProductDetail = () => {
                                     <div key={`placeholder-${i}`} className="thumbnail-item placeholder"></div>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Dot indicators for mobile */}
+                        <div className="dot-indicators">
+                            {productImages.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    className={`dot ${selectedImage === idx ? 'active' : ''}`}
+                                    onClick={() => setSelectedImage(idx)}
+                                    aria-label={`View image ${idx + 1}`}
+                                />
+                            ))}
                         </div>
                     </div>
 

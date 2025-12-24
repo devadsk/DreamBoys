@@ -1,27 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
+import VariantSelectionModal from '../components/VariantSelectionModal';
 import './Wishlist.css';
 
 const Wishlist = () => {
     const navigate = useNavigate();
+    const { currentUser } = useAuth();
     const { wishlist, removeFromWishlist, clearWishlist, moveToCart } = useWishlist();
     const { addToCart } = useCart();
-    const [selectedVariants, setSelectedVariants] = useState({});
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!currentUser) {
+            navigate('/login', { state: { from: '/wishlist' } });
+        }
+    }, [currentUser, navigate]);
+
+    // Don't render anything while checking auth
+    if (!currentUser) {
+        return null;
+    }
 
     const handleMoveToCart = (product) => {
-        // Use stored size and color from wishlist
-        const size = product.selectedSize || product.sizes?.[0] || 'M';
-        const color = product.selectedColor || product.colors?.[0] || 'Black';
-        const quantity = 1;
+        // Show modal for variant selection
+        setSelectedProduct(product);
+        setShowModal(true);
+    };
 
-        // Move to cart
-        moveToCart(product, size, color, quantity, addToCart);
+    const handleModalConfirm = (size, color, quantity) => {
+        if (selectedProduct) {
+            // Move to cart with selected variants
+            moveToCart(selectedProduct, size, color, quantity, addToCart);
+            setShowModal(false);
+            setSelectedProduct(null);
+            // Navigate to cart
+            navigate('/cart');
+        }
+    };
 
-        // Navigate to cart
-        navigate('/cart');
+    const handleModalCancel = () => {
+        setShowModal(false);
+        setSelectedProduct(null);
     };
 
     if (wishlist.length === 0) {
@@ -75,13 +100,15 @@ const Wishlist = () => {
                         >
                             <button
                                 className="remove-btn"
-                                onClick={() => removeFromWishlist(product.id)}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    removeFromWishlist(product.id);
+                                }}
                                 aria-label="Remove from wishlist"
+                                title="Remove from wishlist"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
+                                ×
                             </button>
 
                             <Link to={`/product/${product.id}`} className="product-link">
@@ -104,40 +131,34 @@ const Wishlist = () => {
                                             <span className="original-price">₹{product.originalPrice}</span>
                                         )}
                                     </div>
-
-                                    {product.colors && product.colors.length > 0 && (
-                                        <div className="product-colors">
-                                            {product.colors.slice(0, 4).map((color, idx) => (
-                                                <span
-                                                    key={idx}
-                                                    className="color-dot"
-                                                    style={{ backgroundColor: getColorHex(color) }}
-                                                    title={color}
-                                                ></span>
-                                            ))}
-                                            {product.colors.length > 4 && (
-                                                <span className="more-colors">+{product.colors.length - 4}</span>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             </Link>
 
                             <div className="card-actions">
                                 <button
                                     className="move-to-cart-btn"
-                                    onClick={() => handleMoveToCart(product)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleMoveToCart(product);
+                                    }}
                                     disabled={product.stock <= 0}
                                 >
                                     {product.stock <= 0 ? 'Out of Stock' : 'Move to Cart'}
                                 </button>
-                                <Link to={`/product/${product.id}`} className="view-btn">
-                                    View Details
-                                </Link>
                             </div>
                         </motion.div>
                     ))}
                 </div>
+
+                {/* Variant Selection Modal */}
+                {showModal && selectedProduct && (
+                    <VariantSelectionModal
+                        product={selectedProduct}
+                        onConfirm={handleModalConfirm}
+                        onCancel={handleModalCancel}
+                    />
+                )}
             </div>
         </div>
     );

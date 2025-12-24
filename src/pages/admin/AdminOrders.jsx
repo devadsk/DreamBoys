@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getAllOrders, updateOrderStatus } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import '../admin/AdminDashboard.css';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
+    const toast = useToast();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, pending, processing, shipped, delivered, cancelled
@@ -25,7 +27,7 @@ const AdminOrders = () => {
             setOrders(sortedOrders);
         } catch (error) {
             console.error('Error fetching orders:', error);
-            alert('Failed to fetch orders');
+            toast.error('Failed to fetch orders');
         } finally {
             setLoading(false);
         }
@@ -47,11 +49,11 @@ const AdminOrders = () => {
                     : order
             ));
 
-            alert('Order status updated successfully!');
+            toast.success('Order status updated successfully!');
             setSelectedOrder(null);
         } catch (error) {
             console.error('Error updating order:', error);
-            alert('Failed to update order status');
+            toast.error('Failed to update order status');
         } finally {
             setUpdating(false);
         }

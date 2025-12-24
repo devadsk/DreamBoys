@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getProducts, addProduct, updateProduct, deleteProduct } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig } from '../../firebase/config';
@@ -11,6 +12,7 @@ const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
 const AdminProducts = () => {
+    const toast = useToast();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -158,7 +160,7 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
             resetForm();
             loadProducts();
         } catch (error) {
-            alert('Error saving product: ' + error.message);
+            toast.error(`Error saving product: ${error.message}`);
         } finally {
             setUploading(false);
         }
