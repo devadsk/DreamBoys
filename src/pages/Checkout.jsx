@@ -219,7 +219,9 @@ const Checkout = () => {
                 subtotal: cartTotal,
                 shipping: 0,
                 total: cartTotal,
-                email: shippingInfo.email
+                email: shippingInfo.email,
+                deliveryType: 'standard', // Default to standard
+                deliveryCharge: 0         // Current pricing is free shipping
             };
 
             // CASE 1: Cash on Delivery

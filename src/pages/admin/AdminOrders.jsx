@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllOrders, updateOrderStatus } from '../../firebase/firebaseService';
+import { getAllOrders, updateOrderStatus, initiateShipment } from '../../firebase/firebaseService';
 import { useToast } from '../../context/ToastContext';
 import '../admin/AdminDashboard.css';
 import './AdminOrders.css';
@@ -59,6 +59,35 @@ const AdminOrders = () => {
         }
     };
 
+    const handleInitiateShipment = async (orderId) => {
+        if (!window.confirm('Initiate shipment via Shiprocket? This will create an AWB and schedule pickup.')) {
+            return;
+        }
+
+        try {
+            setUpdating(true);
+            const res = await initiateShipment(orderId);
+            if (res.success) {
+                toast.success('Shipment initiated successfully!');
+                const updatedDelivery = res.delivery || res.data?.delivery;
+                // Update local state
+                setOrders(orders.map(order =>
+                    order.id === orderId
+                        ? { ...order, status: 'shipped', delivery: updatedDelivery }
+                        : order
+                ));
+                setSelectedOrder(prev => ({ ...prev, status: 'shipped', delivery: updatedDelivery }));
+            } else {
+                toast.error(`Shipment Initiation Failed: ${res.error}`);
+            }
+        } catch (error) {
+            console.error('Error initiating shipment:', error);
+            toast.error('Failed to initiate shipment');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     const getFilteredOrders = () => {
         if (filter === 'all') return orders;
         return orders.filter(order => order.status === filter);
@@ -68,6 +97,7 @@ const AdminOrders = () => {
         const statusClasses = {
             pending: 'status-pending',
             processing: 'status-processing',
+            packed: 'status-packed',
             shipped: 'status-shipped',
             delivered: 'status-delivered',
             cancelled: 'status-cancelled'
@@ -269,7 +299,7 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
 
-                                {/* Customer Info */}
+                                {/* Customer Details */}
                                 <div className="detail-section">
                                     <h3>Customer Details</h3>
                                     <div className="detail-grid">
@@ -298,6 +328,37 @@ const AdminOrders = () => {
                                     </p>
                                 </div>
 
+                                {/* Delivery & Tracking Info */}
+                                {selectedOrder.delivery && (
+                                    <div className="detail-section tracking-info">
+                                        <h3>Delivery Information</h3>
+                                        <div className="detail-grid">
+                                            <div>
+                                                <label>Status:</label>
+                                                <p className="delivery-status-text">{selectedOrder.delivery.status?.toUpperCase()}</p>
+                                            </div>
+                                            <div>
+                                                <label>Courier:</label>
+                                                <p>{selectedOrder.delivery.courier || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <label>Tracking ID:</label>
+                                                <p>{selectedOrder.delivery.trackingId || 'N/A'}</p>
+                                            </div>
+                                            {selectedOrder.delivery.trackingUrl && (
+                                                <div className="full-width">
+                                                    <label>Tracking URL:</label>
+                                                    <p>
+                                                        <a href={selectedOrder.delivery.trackingUrl} target="_blank" rel="noopener noreferrer">
+                                                            Track on Shiprocket
+                                                        </a>
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Order Items */}
                                 <div className="detail-section">
                                     <h3>Order Items</h3>
@@ -307,7 +368,7 @@ const AdminOrders = () => {
                                                 <img src={item.image} alt={item.name} />
                                                 <div className="item-details">
                                                     <h4>{item.name}</h4>
-                                                    <p>Size: {item.size} | Color: {item.color}</p>
+                                                    <p>Size: {item.selectedSize} | Color: {item.selectedColor}</p>
                                                     <p>Quantity: {item.quantity}</p>
                                                 </div>
                                                 <div className="item-price">
@@ -318,29 +379,44 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
 
-                                {/* Update Status */}
+                                {/* Update Status / Actions */}
                                 <div className="detail-section">
                                     <h3>Update Order Status</h3>
                                     <div className="status-actions">
-                                        {selectedOrder.status === 'pending' && (
-                                            <>
-                                                <button
-                                                    className="btn-status btn-processing"
-                                                    onClick={() => handleStatusUpdate(selectedOrder.id, 'processing')}
-                                                    disabled={updating}
-                                                >
-                                                    Mark as Processing
-                                                </button>
-                                                <button
-                                                    className="btn-status btn-cancelled"
-                                                    onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')}
-                                                    disabled={updating}
-                                                >
-                                                    Cancel Order
-                                                </button>
-                                            </>
+                                        {/* Initial Actions */}
+                                        {(selectedOrder.status === 'pending' || selectedOrder.status === 'placed' || selectedOrder.status === 'processing') && (
+                                            <button
+                                                className="btn-status btn-processing"
+                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'confirmed')}
+                                                disabled={updating}
+                                            >
+                                                Confirm Order
+                                            </button>
                                         )}
-                                        {selectedOrder.status === 'processing' && (
+
+                                        {/* Shipment Initiation */}
+                                        {selectedOrder.status === 'confirmed' && !selectedOrder.delivery?.shipmentId && (
+                                            <button
+                                                className="btn-status btn-processing"
+                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
+                                                disabled={updating}
+                                            >
+                                                {updating ? 'Processing...' : 'Initiate Shipment (Shiprocket)'}
+                                            </button>
+                                        )}
+
+                                        {/* Lifecycle Transitions */}
+                                        {selectedOrder.status === 'confirmed' && (
+                                            <button
+                                                className="btn-status btn-packed"
+                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'packed')}
+                                                disabled={updating}
+                                            >
+                                                Mark as Packed
+                                            </button>
+                                        )}
+
+                                        {selectedOrder.status === 'packed' && (
                                             <button
                                                 className="btn-status btn-shipped"
                                                 onClick={() => handleStatusUpdate(selectedOrder.id, 'shipped')}
@@ -349,6 +425,7 @@ const AdminOrders = () => {
                                                 Mark as Shipped
                                             </button>
                                         )}
+
                                         {selectedOrder.status === 'shipped' && (
                                             <button
                                                 className="btn-status btn-delivered"
@@ -356,6 +433,28 @@ const AdminOrders = () => {
                                                 disabled={updating}
                                             >
                                                 Mark as Delivered
+                                            </button>
+                                        )}
+
+                                        {/* Cancel Option */}
+                                        {['pending', 'placed', 'confirmed', 'processing'].includes(selectedOrder.status) && (
+                                            <button
+                                                className="btn-status btn-cancelled"
+                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')}
+                                                disabled={updating}
+                                            >
+                                                Cancel Order
+                                            </button>
+                                        )}
+
+                                        {/* Retry Shipment */}
+                                        {selectedOrder.status === 'confirmed' && selectedOrder.delivery?.status === 'failed' && (
+                                            <button
+                                                className="btn-status btn-retry"
+                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
+                                                disabled={updating}
+                                            >
+                                                Retry Shipment
                                             </button>
                                         )}
                                     </div>

@@ -1,6 +1,8 @@
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const Razorpay = require('razorpay');
+const { createShiprocketOrder, mapShiprocketStatus } = require('./shiprocket');
 
 admin.initializeApp();
 
@@ -239,7 +241,6 @@ exports.getRefundStatus = onCall(async (request) => {
  * Webhook handler for Razorpay refund events
  * Updates order status when refund is processed
  */
-const { onRequest } = require('firebase-functions/v2/https');
 
 exports.razorpayRefundWebhook = onRequest(async (req, res) => {
     const crypto = require('crypto');
@@ -286,5 +287,193 @@ exports.razorpayRefundWebhook = onRequest(async (req, res) => {
     } catch (error) {
         console.error('Webhook processing error:', error);
         res.status(500).send('Webhook processing failed');
+    }
+});
+
+/**
+ * Create Shiprocket Order (Shipment)
+ * Callable triggered by admin after confirming payment/order
+ */
+exports.initiateShipment = onCall(async (request) => {
+    try {
+        if (!request.auth) {
+            throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
+        }
+
+        const { orderId } = request.data;
+        if (!orderId) {
+            throw new HttpsError('invalid-argument', 'The function must be called with an orderId.');
+        }
+
+        console.log(`Initiating shipment for order: ${orderId}`);
+
+        const orderDoc = await admin.firestore().collection('orders').doc(orderId).get();
+        if (!orderDoc.exists) {
+            throw new HttpsError('not-found', 'The order was not found.');
+        }
+
+        const orderData = orderDoc.data();
+
+        // Check if shipment already exists
+        if (orderData.delivery?.shipmentId) {
+            return { success: true, message: 'Shipment already exists', delivery: orderData.delivery };
+        }
+
+        // Create shipment in Shiprocket
+        const srResponse = await createShiprocketOrder(orderData, orderId);
+
+        const deliveryUpdate = {
+            ...orderData.delivery,
+            status: 'shipped',
+            shipmentId: srResponse.shipment_id || null,
+            courier: srResponse.courier_name || null,
+            trackingId: srResponse.tracking_id || srResponse.awb_code || null,
+            trackingUrl: srResponse.tracking_url || `https://shiprocket.co/tracking/${srResponse.tracking_id || srResponse.awb_code}`,
+            history: [
+                ...(orderData.delivery?.history || []),
+                {
+                    status: 'shipped',
+                    message: 'Shipment created and tracking ID assigned.',
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        };
+
+        await orderDoc.ref.update({
+            status: 'shipped',
+            delivery: deliveryUpdate,
+            updatedAt: new Date().toISOString()
+        });
+
+        return {
+            success: true,
+            delivery: deliveryUpdate
+        };
+
+    } catch (error) {
+        console.error('Initiate Shipment Error:', error);
+        // If it's already an HttpsError, rethrow it
+        if (error.code && error.details) {
+            throw error;
+        }
+        // Map common error messages to clearer v2 errors
+        throw new HttpsError('internal', error.message || 'Shipment Initiation Failed');
+    }
+});
+
+/**
+ * Shiprocket Webhook Handler
+ */
+exports.shiprocketWebhook = onRequest(async (req, res) => {
+    // Shiprocket sends a signature in 'x-api-key' or similar depending on setup
+    // For now, we process the payload. In production, verify the source.
+
+    const payload = req.body;
+    console.log('Shiprocket Webhook received:', payload);
+
+    const { order_id, status, awb, courier_name, shipment_id } = payload;
+
+    try {
+        if (!order_id) {
+            return res.status(400).send('Missing order_id');
+        }
+
+        const ordersRef = admin.firestore().collection('orders');
+        const snapshot = await ordersRef.where('orderNumber', '==', order_id).get();
+
+        if (snapshot.empty) {
+            console.warn(`Order ${order_id} not found for Shiprocket update`);
+            return res.status(404).send('Order not found');
+        }
+
+        const orderDoc = snapshot.docs[0];
+        const orderData = orderDoc.data(); // Define orderData here
+        const internalStatus = mapShiprocketStatus(status);
+        if (internalStatus) {
+            const deliveryHistory = orderData.delivery?.history || [];
+
+            // Check if this status is already the latest to avoid duplicate history entries
+            if (orderData.delivery?.status !== internalStatus) {
+                await orderDoc.ref.update({ // Use orderDoc.ref
+                    status: internalStatus,
+                    'delivery.status': internalStatus,
+                    'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                        status: internalStatus,
+                        message: `Status updated to ${internalStatus} via Shiprocket.`,
+                        timestamp: new Date().toISOString()
+                    }),
+                    updatedAt: new Date().toISOString()
+                });
+            }
+        }
+        // Update tracking info if provided (AWB assignment)
+        if (awb || shipment_id) {
+            await orderDoc.ref.update({
+                'delivery.shipmentId': shipment_id || orderData.delivery?.shipmentId,
+                'delivery.trackingId': awb || orderData.delivery?.trackingId,
+                'delivery.courier': courier_name || orderData.delivery?.courier,
+                updatedAt: new Date().toISOString()
+            });
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('Webhook processing error:', error);
+        res.status(500).send('Internal Error');
+    }
+});
+/**
+ * Firestore Trigger: Automatically initiate shipment when order is confirmed
+ */
+exports.onOrderConfirmed = onDocumentUpdated('orders/{orderId}', async (event) => {
+    const newValue = event.data.after.data();
+    const oldValue = event.data.before.data();
+
+    // Trigger only if status changed to 'confirmed'
+    if (newValue.status === 'confirmed' && oldValue.status !== 'confirmed') {
+        const orderId = event.params.orderId;
+
+        // Skip if shipment already exists
+        if (newValue.delivery?.shipmentId) return;
+
+        try {
+            console.log(`Auto-initiating shipment for order: ${orderId}`);
+            const srResponse = await createShiprocketOrder(newValue, orderId);
+
+            const deliveryUpdate = {
+                ...newValue.delivery,
+                status: 'shipped',
+                shipmentId: srResponse.shipment_id || null,
+                courier: srResponse.courier_name || null,
+                trackingId: srResponse.tracking_id || srResponse.awb_code || null,
+                trackingUrl: srResponse.tracking_url || `https://shiprocket.co/tracking/${srResponse.tracking_id || srResponse.awb_code}`,
+                history: [
+                    ...(newValue.delivery?.history || []),
+                    {
+                        status: 'shipped',
+                        message: 'Shipment created automatically after confirmation.',
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            };
+
+            await event.data.after.ref.update({
+                status: 'shipped',
+                delivery: deliveryUpdate,
+                updatedAt: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error(`Auto-Shipment Error for ${orderId}:`, error);
+            // Update history with failure
+            await event.data.after.ref.update({
+                'delivery.status': 'failed',
+                'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                    status: 'failed',
+                    message: `Auto-shipment failed: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                })
+            });
+        }
     }
 });

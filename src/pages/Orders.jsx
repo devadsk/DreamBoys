@@ -61,7 +61,8 @@ const Orders = () => {
             replace_requested: { label: 'Replace Requested', color: '#f97316', icon: '🔄' },
             replacement_approved: { label: 'Replacement Approved', color: '#10b981', icon: '✅' },
             replacement_processing: { label: 'Replacement Processing', color: '#3b82f6', icon: '📦' },
-            replaced: { label: 'Replaced', color: '#10b981', icon: '✅' }
+            replaced: { label: 'Replaced', color: '#10b981', icon: '✅' },
+            placed: { label: 'Placed', color: '#f59e0b', icon: '📦' }
         };
         return statusMap[status] || statusMap.pending;
     };
@@ -290,6 +291,52 @@ const Orders = () => {
                                             <p className="more-items">+{order.items.length - 2} more item(s)</p>
                                         )}
                                     </div>
+
+                                    {/* Delivery Timeline */}
+                                    {['placed', 'confirmed', 'packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) && (
+                                        <div className="delivery-timeline">
+                                            <div className="timeline-steps">
+                                                <div className={`timeline-step ${['placed', 'confirmed', 'packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Placed</span>
+                                                </div>
+                                                <div className={`timeline-line ${['confirmed', 'packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}></div>
+                                                <div className={`timeline-step ${['confirmed', 'packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Confirmed</span>
+                                                </div>
+                                                <div className={`timeline-line ${['packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}></div>
+                                                <div className={`timeline-step ${['packed', 'shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Packed</span>
+                                                </div>
+                                                <div className={`timeline-line ${['shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}></div>
+                                                <div className={`timeline-step ${['shipped', 'out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Shipped</span>
+                                                </div>
+                                                <div className={`timeline-line ${['out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}></div>
+                                                <div className={`timeline-step ${['out_for_delivery', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Out for Delivery</span>
+                                                </div>
+                                                <div className={`timeline-line ${['delivered'].includes(order.status) ? 'completed' : ''}`}></div>
+                                                <div className={`timeline-step ${['delivered'].includes(order.status) ? 'completed' : ''}`}>
+                                                    <div className="step-dot"></div>
+                                                    <span>Delivered</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {order.delivery?.trackingUrl && (
+                                        <div className="tracking-info-compact">
+                                            <p><strong>Courier:</strong> {order.delivery.courier || 'N/A'}</p>
+                                            <a href={order.delivery.trackingUrl} target="_blank" rel="noopener noreferrer" className="btn-track-order">
+                                                Track Order 🚚
+                                            </a>
+                                        </div>
+                                    )}
 
                                     {/* Refund Status Display */}
                                     {(order.status === 'cancelled' || order.status === 'refunded') && order.refundStatus && (

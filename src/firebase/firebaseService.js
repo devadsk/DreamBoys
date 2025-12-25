@@ -24,6 +24,7 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { firebaseConfig } from './config';
 import { runTransaction } from "firebase/firestore";
 
@@ -32,6 +33,7 @@ import { runTransaction } from "firebase/firestore";
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app);
 
 // Google Provider
 const googleProvider = new GoogleAuthProvider();
@@ -473,9 +475,31 @@ export const createOrder = async (orderData) => {
             const newOrder = removeUndefined({
                 ...orderData,
                 orderNumber,
-                status: 'pending',
+                status: orderData.paymentMethod === 'cod' ? 'placed' : (orderData.paymentDetails?.verified ? 'confirmed' : 'placed'),
+                delivery: {
+                    provider: "shiprocket",
+                    status: orderData.paymentMethod === 'cod' ? 'confirmed' : (orderData.paymentDetails?.verified ? 'confirmed' : 'pending'),
+                    shipmentId: null,
+                    trackingId: null,
+                    trackingUrl: null,
+                    courier: null,
+                    history: [],
+                    // Keep snapshot for reference
+                    snapshot: {
+                        fullName: orderData.shippingAddress.fullName,
+                        phone: orderData.shippingAddress.phone,
+                        email: orderData.shippingAddress.email,
+                        street: orderData.shippingAddress.street,
+                        city: orderData.shippingAddress.city,
+                        state: orderData.shippingAddress.state,
+                        zipCode: orderData.shippingAddress.zipCode,
+                        country: orderData.shippingAddress.country,
+                        type: orderData.deliveryType || 'standard',
+                        charge: orderData.deliveryCharge || 0
+                    }
+                },
                 createdAt: new Date().toISOString(),
-                id: newOrderRef.id // Save ID inside doc too if needed
+                id: newOrderRef.id
             });
 
             transaction.set(newOrderRef, newOrder);
@@ -526,6 +550,19 @@ export const getAllOrders = async () => {
     }
 };
 
+
+// Update order tracking info (Shiprocket integration)
+export const updateOrderTracking = async (orderId, trackingData) => {
+    try {
+        await updateDoc(doc(db, 'orders', orderId), {
+            tracking: trackingData,
+            updatedAt: new Date().toISOString()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
 
 // Update order status (Admin only or user for cancellation)
 export const updateOrderStatus = async (orderId, status, additionalData = {}) => {
@@ -1229,6 +1266,18 @@ export const updateMessage = async (messageId, updateData) => {
         });
         return { success: true };
     } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// Initiate Shipment via Shiprocket (Cloud Function)
+export const initiateShipment = async (orderId) => {
+    try {
+        const initiateShipmentFn = httpsCallable(functions, 'initiateShipment');
+        const result = await initiateShipmentFn({ orderId });
+        return { success: true, data: result.data };
+    } catch (error) {
+        console.error('Error initiating shipment:', error);
         return { success: false, error: error.message };
     }
 };
