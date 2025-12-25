@@ -11,8 +11,7 @@ async function getShiprocketToken() {
     const password = process.env.SHIPROCKET_PASSWORD;
 
     if (!email || !password) {
-        console.warn('Shiprocket credentials not set. Using mock token for test mode.');
-        return 'MOCK_TOKEN';
+        throw new Error('Shiprocket credentials (SHIPROCKET_EMAIL/SHIPROCKET_PASSWORD) are not configured in environment variables.');
     }
 
     try {
@@ -20,10 +19,16 @@ async function getShiprocketToken() {
             email,
             password
         });
+
+        if (!response.data.token) {
+            throw new Error('Authentication successful but no token received from Shiprocket.');
+        }
+
         return response.data.token;
     } catch (error) {
-        console.error('Shiprocket Auth Error:', error.response?.data || error.message);
-        throw new Error('Failed to authenticate with Shiprocket');
+        const errorMsg = error.response?.data?.message || error.message;
+        console.error('Shiprocket Auth Error:', errorMsg);
+        throw new Error(`Failed to authenticate with Shiprocket: ${errorMsg}`);
     }
 }
 
@@ -50,18 +55,6 @@ function mapShiprocketStatus(status) {
 async function createShiprocketOrder(orderData, orderId) {
     const token = await getShiprocketToken();
 
-    // In test mode, if no credentials, return a mock response
-    if (token === 'MOCK_TOKEN') {
-        return {
-            order_id: `SR-${Date.now()}`,
-            shipment_id: `SHP-${Date.now()}`,
-            status: 'NEW',
-            courier_name: 'Ecom Express (Mock)',
-            tracking_id: 'TRACK123456789',
-            tracking_url: 'https://shiprocket.co/tracking/TRACK123456789'
-        };
-    }
-
     const snapshot = orderData.delivery?.snapshot || orderData.deliveryInfo || orderData.shippingAddress || {};
     const items = orderData.items || [];
 
@@ -69,10 +62,16 @@ async function createShiprocketOrder(orderData, orderId) {
         throw new Error('Order has no items for shipment');
     }
 
+    const orderDate = orderData.createdAt
+        ? (typeof orderData.createdAt.toDate === 'function'
+            ? orderData.createdAt.toDate()
+            : new Date(orderData.createdAt))
+        : new Date();
+
     const payload = {
         order_id: orderData.orderNumber,
-        order_date: new Date(orderData.createdAt).toISOString().slice(0, 10),
-        pickup_location: "Primary",
+        order_date: orderDate.toISOString().slice(0, 10),
+        pickup_location: "Home",
         billing_customer_name: snapshot.fullName || 'Customer',
         billing_last_name: "",
         billing_address: snapshot.street || '',
@@ -81,7 +80,7 @@ async function createShiprocketOrder(orderData, orderId) {
         billing_state: snapshot.state || '',
         billing_country: "India",
         billing_email: snapshot.email || orderData.email || '',
-        billing_phone: snapshot.phone || '0000000000',
+        billing_phone: (snapshot.phone || '0000000000').replace(/\D/g, '').slice(-10),
         shipping_is_billing: true,
         order_items: items.map((item, index) => ({
             name: item.name || 'Product',
@@ -99,7 +98,7 @@ async function createShiprocketOrder(orderData, orderId) {
         total_discount: 0,
         sub_total: Number(orderData.subtotal) || Number(orderData.total),
         length: 10,
-        width: 10,
+        breadth: 10,
         height: 10,
         weight: 0.5
     };
@@ -108,10 +107,48 @@ async function createShiprocketOrder(orderData, orderId) {
         const response = await axios.post(`${SHIPROCKET_API_URL}/orders/create/adhoc`, payload, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        return response.data;
+
+        const srData = response.data;
+
+        // Step 2: Assign AWB automatically
+        if (srData.shipment_id) {
+            try {
+                const awbResponse = await axios.post(`${SHIPROCKET_API_URL}/courier/assign/awb`, {
+                    shipment_id: srData.shipment_id
+                }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (awbResponse.data && awbResponse.data.response && awbResponse.data.response.data) {
+                    const awbData = awbResponse.data.response.data;
+                    srData.awb_code = awbData.awb_code;
+                    srData.courier_name = awbData.courier_name;
+                    srData.tracking_id = awbData.awb_code;
+                    // Some responses include a tracking_url, otherwise we'll build it in functions
+                }
+            } catch (awbError) {
+                console.error('AWB Assignment Error:', awbError.response?.data || awbError.message);
+                // We still want to return the order/shipment info even if AWB assignment fails
+                // The admin can retry AWB assignment in the Shiprocket dashboard or our Retry button
+            }
+        }
+
+        return srData;
     } catch (error) {
-        console.error('Shiprocket Create Order Error:', error.response?.data || error.message);
-        throw new Error(error.response?.data?.message || 'Failed to create Shiprocket shipment');
+        const srError = error.response?.data;
+        console.error('Shiprocket Create Order Error:', srError || error.message);
+
+        let errorMessage = srError?.message || 'Failed to create Shiprocket shipment';
+
+        // If Shiprocket provides specific field errors, include them
+        if (srError?.errors) {
+            const details = Object.entries(srError.errors)
+                .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+                .join('; ');
+            errorMessage += ` (${details})`;
+        }
+
+        throw new Error(errorMessage);
     }
 }
 

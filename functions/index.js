@@ -294,7 +294,9 @@ exports.razorpayRefundWebhook = onRequest(async (req, res) => {
  * Create Shiprocket Order (Shipment)
  * Callable triggered by admin after confirming payment/order
  */
-exports.initiateShipment = onCall(async (request) => {
+exports.initiateShipment = onCall({
+    secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
+}, async (request) => {
     try {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -425,7 +427,10 @@ exports.shiprocketWebhook = onRequest(async (req, res) => {
 /**
  * Firestore Trigger: Automatically initiate shipment when order is confirmed
  */
-exports.onOrderConfirmed = onDocumentUpdated('orders/{orderId}', async (event) => {
+exports.onOrderConfirmed = onDocumentUpdated({
+    document: 'orders/{orderId}',
+    secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
+}, async (event) => {
     const newValue = event.data.after.data();
     const oldValue = event.data.before.data();
 
