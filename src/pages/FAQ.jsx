@@ -26,13 +26,41 @@ const FAQ = () => {
     }, [searchParams]);
 
     const categories = [
-        { id: 'all', name: 'All Questions', icon: '📚' },
-        { id: 'orders', name: 'Orders & Payment', icon: '🛒' },
-        { id: 'shipping', name: 'Shipping & Delivery', icon: '📦' },
-        { id: 'returns', name: 'Returns & Exchanges', icon: '🔄' },
-        { id: 'products', name: 'Products & Sizing', icon: '👕' },
-        { id: 'account', name: 'Account & Security', icon: '👤' },
-        { id: 'general', name: 'General', icon: '❓' }
+        {
+            id: 'all',
+            name: 'All Questions',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        },
+        {
+            id: 'orders',
+            name: 'Orders & Payment',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        },
+        {
+            id: 'shipping',
+            name: 'Shipping & Delivery',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+        },
+        {
+            id: 'returns',
+            name: 'Returns & Exchanges',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        },
+        {
+            id: 'products',
+            name: 'Products & Sizing',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path></svg>
+        },
+        {
+            id: 'account',
+            name: 'Account & Security',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        },
+        {
+            id: 'general',
+            name: 'General',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        }
     ];
 
     const faqs = [
@@ -222,88 +250,93 @@ const FAQ = () => {
 
     return (
         <div className="faq-page">
-            <div className="faq-hero">
+            <header className="faq-header">
                 <div className="container">
-                    <h1>Frequently Asked Questions</h1>
-                    <p>Find answers to common questions about shopping with DreamBoys</p>
+                    <h1 className="faq-title">Help Center</h1>
+                    <p className="faq-subtitle">Everything you need to know about our products and services.</p>
 
-                    <div className="faq-search">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <div className="faq-search-wrapper">
+                        <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                         <input
                             type="text"
+                            className="faq-search-input"
                             placeholder="Search for answers..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="faq-content container">
-                <div className="faq-categories">
-                    {categories.map(cat => (
-                        <button
-                            key={cat.id}
-                            className={`category-btn ${activeCategory === cat.id ? 'active' : ''}`}
-                            onClick={() => setActiveCategory(cat.id)}
-                        >
-                            <span className="category-icon">{cat.icon}</span>
-                            <span className="category-name">{cat.name}</span>
-                        </button>
-                    ))}
-                </div>
+            <div className="faq-main container">
+                <aside className="faq-sidebar">
+                    <div className="category-list">
+                        {categories.map(cat => (
+                            <button
+                                key={cat.id}
+                                className={`category-item ${activeCategory === cat.id ? 'active' : ''}`}
+                                onClick={() => setActiveCategory(cat.id)}
+                            >
+                                <span className="category-icon">{cat.icon}</span>
+                                <span className="category-label">{cat.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </aside>
 
-                <div className="faq-list">
-                    {filteredFAQs.length === 0 ? (
-                        <div className="no-results">
-                            <h3>No questions found</h3>
-                            <p>Try a different search term or category</p>
-                        </div>
-                    ) : (
-                        filteredFAQs.map((faq, index) => (
-                            <div key={index} className={`faq-item ${openQuestion === index ? 'open' : ''}`}>
-                                <button className="faq-question" onClick={() => toggleQuestion(index)}>
-                                    <span>{faq.question}</span>
-                                    <svg
-                                        className="faq-icon"
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </button>
-                                <div className="faq-answer">
-                                    <p>{faq.answer}</p>
-                                </div>
+                <div className="faq-content-area">
+                    <div className="faq-list">
+                        {filteredFAQs.length === 0 ? (
+                            <div className="no-results">
+                                <h3 className="no-results-title">No results found</h3>
+                                <p className="no-results-text">Try adjusting your search or filter to find what you're looking for.</p>
                             </div>
-                        ))
-                    )}
-                </div>
+                        ) : (
+                            <div className="accordion">
+                                {filteredFAQs.map((faq, index) => (
+                                    <div key={index} className={`accordion-item ${openQuestion === index ? 'expanded' : ''}`}>
+                                        <button
+                                            className="accordion-trigger"
+                                            onClick={() => toggleQuestion(index)}
+                                            aria-expanded={openQuestion === index}
+                                        >
+                                            <span className="question-text">{faq.question}</span>
+                                            <svg
+                                                className="accordion-icon"
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </button>
+                                        <div
+                                            className="accordion-content"
+                                            style={{ maxHeight: openQuestion === index ? '1000px' : '0' }}
+                                        >
+                                            <div className="answer-text">{faq.answer}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
-                <div className="faq-contact">
-                    <h2>Still have questions?</h2>
-                    <p>Can't find the answer you're looking for? Our customer support team is here to help!</p>
-                    <div className="contact-options">
-                        <a href="mailto:support@dreamboys.com" className="contact-option">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                                <polyline points="22,6 12,13 2,6" />
-                            </svg>
-                            <span>Email Us</span>
-                        </a>
-                        <a href="tel:+15551234567" className="contact-option">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                            </svg>
-                            <span>Call Us</span>
-                        </a>
+                    <div className="faq-footer">
+                        <p className="faq-footer-text">Still can't find what you're looking for?</p>
+                        <div className="contact-links">
+                            <a href="mailto:support@dreamboys.com" className="contact-link">
+                                Contact Support
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

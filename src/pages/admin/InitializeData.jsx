@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { initializeCategories } from '../../firebase/initializeCategories';
+import { Rocket, Box, CheckCircle, AlertTriangle, AlertCircle, Info, Database } from 'lucide-react';
+import '../admin/AdminDashboard.css'; // Use shared styles
 import './InitializeData.css';
 
 const InitializeData = () => {
@@ -21,61 +23,81 @@ const InitializeData = () => {
     };
 
     return (
-        <div className="initialize-data-page">
-            <div className="initialize-container">
-                <h1>🚀 Initialize Categories</h1>
-                <p className="description">
-                    Click the button below to automatically add 6 product categories to your Firebase database.
-                </p>
+        <div className="admin-page-content centered-content">
+            <div className="initialize-card">
+                <div className="card-header-center">
+                    <div className="icon-badge">
+                        <Rocket size={32} />
+                    </div>
+                    <h1>Initialize Categories</h1>
+                    <p className="subtitle">
+                        Automatically seed your database with default product categories.
+                    </p>
+                </div>
 
-                <div className="info-box">
-                    <h3>📦 What will be added:</h3>
-                    <ul>
-                        <li>👔 Premium Shirts (visible)</li>
-                        <li>👕 Designer T-Shirts (visible)</li>
-                        <li>👖 Luxury Jeans (visible)</li>
-                        <li>🧥 Exclusive Jackets (hidden)</li>
-                        <li>👟 Casual Wear (hidden)</li>
-                        <li>🎩 Formal Wear (hidden)</li>
+                <div className="info-section">
+                    <h3><Database size={16} /> Data to be added:</h3>
+                    <ul className="data-list">
+                        <li><span>👔</span> Premium Shirts (visible)</li>
+                        <li><span>👕</span> Designer T-Shirts (visible)</li>
+                        <li><span>👖</span> Luxury Jeans (visible)</li>
+                        <li><span>🧥</span> Exclusive Jackets (hidden)</li>
+                        <li><span>👟</span> Casual Wear (hidden)</li>
+                        <li><span>🎩</span> Formal Wear (hidden)</li>
                     </ul>
                 </div>
 
-                <div className="warning-box">
-                    <strong>⚠️ Before clicking:</strong>
-                    <ol>
-                        <li>Make sure you've deployed Firestore security rules</li>
-                        <li>Make sure your user has <code>role: "admin"</code> in Firebase</li>
-                        <li>Make sure you're logged in to the app</li>
-                    </ol>
+                <div className="warning-section">
+                    <div className="warning-header">
+                        <AlertTriangle size={18} />
+                        <strong>Prerequisites</strong>
+                    </div>
+                    <ul className="check-list">
+                        <li><CheckCircle size={14} /> Firestore security rules deployed</li>
+                        <li><CheckCircle size={14} /> User has "admin" role in Firebase</li>
+                        <li><CheckCircle size={14} /> User is logged in</li>
+                    </ul>
                 </div>
 
                 <button
-                    className="btn-initialize"
+                    className="btn btn-primary btn-large w-full"
                     onClick={handleInitialize}
                     disabled={loading}
                 >
-                    {loading ? '⏳ Adding Categories...' : '🚀 Add Categories Now'}
+                    {loading ? (
+                        <>
+                            <div className="spinner-sm"></div>
+                            Processing...
+                        </>
+                    ) : (
+                        <>
+                            <Rocket size={18} /> Initialize Database
+                        </>
+                    )}
                 </button>
 
                 {result && (
-                    <div className={`result-box ${result.success ? 'success' : 'error'}`}>
+                    <div className={`result-box ${result.success ? 'result-success' : 'result-error'}`}>
                         {result.success ? (
-                            <>
-                                <h3>✅ Success!</h3>
-                                <p>{result.message}</p>
-                                <p>Go to <strong>/admin/content</strong> to manage them!</p>
-                            </>
+                            <div className="result-content">
+                                <CheckCircle size={24} />
+                                <div>
+                                    <h3>Success!</h3>
+                                    <p>{result.message}</p>
+                                    <p className="mt-1 text-sm">Go to <strong>Admin &gt; Content</strong> to manage them.</p>
+                                </div>
+                            </div>
                         ) : (
-                            <>
-                                <h3>❌ Error</h3>
-                                <p>{result.error}</p>
-                                <p><strong>Common fixes:</strong></p>
-                                <ul>
-                                    <li>Deploy security rules to Firebase Console</li>
-                                    <li>Set your user's role to "admin" in Firebase</li>
-                                    <li>Make sure you're logged in</li>
-                                </ul>
-                            </>
+                            <div className="result-content">
+                                <AlertCircle size={24} />
+                                <div>
+                                    <h3>Error Failed</h3>
+                                    <p>{result.error}</p>
+                                    <div className="tips text-sm mt-2 pt-2 border-t border-red-200">
+                                        <strong>Try:</strong> Deploy rules, check admin role, relogin.
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 )}

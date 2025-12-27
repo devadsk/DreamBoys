@@ -32,8 +32,10 @@ import UserMessages from './pages/UserMessages';
 import InitializeData from './pages/admin/InitializeData';
 
 // Components
-import Header from './components/Header';
-import Footer from './components/Footer';
+import Header from './components/Header'; // Deprecated for MainLayout usage but verify first
+import Footer from './components/Footer'; // Deprecated
+import MainLayout from './components/MainLayout';
+import AdminLayout from './components/AdminLayout';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import ScrollToTop from './components/ScrollToTop';
@@ -62,43 +64,41 @@ function App() {
                     <CartProvider>
                         <Router>
                             <ScrollToTop />
-                            <div className="app">
-                                <Header />
-                                <main>
-                                    <Routes>
-                                        {/* Public Routes */}
-                                        <Route path="/" element={<Home />} />
-                                        <Route path="/products" element={<Products />} />
-                                        <Route path="/product/:id" element={<ProductDetail />} />
-                                        <Route path="/login" element={<Login />} />
-                                        <Route path="/register" element={<Register />} />
-                                        <Route path="/contact" element={<Contact />} />
-                                        <Route path="/privacy" element={<PrivacyPolicy />} />
-                                        <Route path="/terms" element={<TermsOfService />} />
-                                        <Route path="/faq" element={<FAQ />} />
+                            <Routes>
+                                {/* Public Routes wrapped in MainLayout */}
+                                <Route element={<MainLayout />}>
+                                    <Route path="/" element={<Home />} />
+                                    <Route path="/products" element={<Products />} />
+                                    <Route path="/product/:id" element={<ProductDetail />} />
+                                    <Route path="/login" element={<Login />} />
+                                    <Route path="/register" element={<Register />} />
+                                    <Route path="/contact" element={<Contact />} />
+                                    <Route path="/privacy" element={<PrivacyPolicy />} />
+                                    <Route path="/terms" element={<TermsOfService />} />
+                                    <Route path="/faq" element={<FAQ />} />
 
-                                        {/* Protected Routes */}
-                                        <Route path="/wishlist" element={<Wishlist />} />
-                                        <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
-                                        <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
-                                        <Route path="/order-success/:orderId" element={<PrivateRoute><OrderSuccess /></PrivateRoute>} />
-                                        <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
-                                        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                                        <Route path="/my-messages" element={<PrivateRoute><UserMessages /></PrivateRoute>} />
+                                    {/* Protected Customer Routes */}
+                                    <Route path="/wishlist" element={<Wishlist />} />
+                                    <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
+                                    <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
+                                    <Route path="/order-success/:orderId" element={<PrivateRoute><OrderSuccess /></PrivateRoute>} />
+                                    <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+                                    <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                                    <Route path="/my-messages" element={<PrivateRoute><UserMessages /></PrivateRoute>} />
+                                </Route>
 
-                                        {/* Admin Routes */}
-                                        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                                        <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
-                                        <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
-                                        <Route path="/admin/requests" element={<AdminRoute><AdminRequests /></AdminRoute>} />
-                                        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
-                                        <Route path="/admin/content" element={<AdminRoute><AdminContent /></AdminRoute>} />
-                                        <Route path="/admin/messages" element={<AdminRoute><AdminMessages /></AdminRoute>} />
-                                        <Route path="/admin/initialize" element={<AdminRoute><InitializeData /></AdminRoute>} />
-                                    </Routes>
-                                </main>
-                                <Footer />
-                            </div>
+                                {/* Admin Routes wrapped in AdminLayout */}
+                                <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+                                    <Route index element={<AdminDashboard />} />
+                                    <Route path="products" element={<AdminProducts />} />
+                                    <Route path="orders" element={<AdminOrders />} />
+                                    <Route path="requests" element={<AdminRequests />} />
+                                    <Route path="users" element={<AdminUsers />} />
+                                    <Route path="content" element={<AdminContent />} />
+                                    <Route path="messages" element={<AdminMessages />} />
+                                    <Route path="initialize" element={<InitializeData />} />
+                                </Route>
+                            </Routes>
                         </Router>
                     </CartProvider>
                 </WishlistProvider>

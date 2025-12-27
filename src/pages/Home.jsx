@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getTestimonials, getCategories } from '../firebase/firebaseService';
-import videoBg from '../assets/9ev41aksydrma0cv67rb96tvtg_result_.mp4';
+import videoBg from '../assets/videos/admin-hero.mp4';
 import logoImg from '../assets/logo.jpg';
 import './Home.css';
 
@@ -135,7 +135,32 @@ const Home = () => {
                                 <div className="showcase-ring ring-1"></div>
                                 <div className="showcase-ring ring-2"></div>
                                 <div className="showcase-ring ring-3"></div>
-                                <div className="showcase-icon">👔</div>
+                                <motion.div
+                                    className="showcase-icon"
+                                    animate={{
+                                        y: [0, -5, 0],
+                                        rotateZ: [0, 2, -2, 0],
+                                        filter: ["drop-shadow(0 0 0px rgba(255,215,0,0))", "drop-shadow(0 0 10px rgba(255,215,0,0.5))", "drop-shadow(0 0 0px rgba(255,215,0,0))"]
+                                    }}
+                                    transition={{
+                                        duration: 3,
+                                        repeat: Infinity,
+                                        ease: "easeInOut"
+                                    }}
+                                >
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                                        <defs>
+                                            <linearGradient id="luxury-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#d4af37" />
+                                                <stop offset="50%" stopColor="#fdfd96" />
+                                                <stop offset="100%" stopColor="#d4af37" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M6 3L2 9l10 12L22 9l-4-6H6z" fill="url(#luxury-gold)" stroke="none" opacity="0.9" />
+                                        <path d="M6 3L2 9l10 12L22 9l-4-6H6z" stroke="#fff" strokeWidth="0.5" fill="none" />
+                                        <path d="M12 21L7.5 9M12 21l4.5-12M2 9h20M12 3v18" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
+                                    </svg>
+                                </motion.div>
                             </div>
                             <div className="floating-badge badge-1">Premium Quality</div>
                             <div className="floating-badge badge-2">Free Shipping</div>

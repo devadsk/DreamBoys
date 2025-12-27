@@ -1,14 +1,36 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+    RefreshCw,
+    Search,
+    Filter,
+    Eye,
+    Truck,
+    Package,
+    CheckCircle,
+    XCircle,
+    Clock,
+    AlertCircle,
+    MapPin,
+    Calendar,
+    CreditCard,
+    User,
+    Mail,
+    Phone,
+    X,
+    ChevronDown,
+    ArrowUpRight
+} from 'lucide-react';
 import { getAllOrders, updateOrderStatus, initiateShipment } from '../../firebase/firebaseService';
 import { useToast } from '../../context/ToastContext';
-import '../admin/AdminDashboard.css';
+import '../admin/AdminDashboard.css'; // Keep for some potential shared styles if needed, but rely mainly on local + variables
 import './AdminOrders.css';
 
 const AdminOrders = () => {
     const toast = useToast();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all'); // all, pending, processing, shipped, delivered, cancelled
+    const [activeTab, setActiveTab] = useState('all'); // all, pending, processing, shipped, delivered, cancelled
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [updating, setUpdating] = useState(false);
 
@@ -40,7 +62,7 @@ const AdminOrders = () => {
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         if (!window.confirm(`Update order status to "${newStatus}"?`)) {
-
+            return;
         }
 
         try {
@@ -55,7 +77,11 @@ const AdminOrders = () => {
             ));
 
             toast.success('Order status updated successfully!');
-            setSelectedOrder(null);
+            // Update selected order view if open
+            if (selectedOrder && selectedOrder.id === orderId) {
+                setSelectedOrder({ ...selectedOrder, status: newStatus });
+            }
+            // Close modal if status update completes flow (optional, keeping open for now)
         } catch (error) {
             console.error('Error updating order:', error);
             toast.error('Failed to update order status');
@@ -107,20 +133,20 @@ const AdminOrders = () => {
 
 
     const getFilteredOrders = () => {
-        if (filter === 'all') return orders;
-        return orders.filter(order => order.status === filter);
+        if (activeTab === 'all') return orders;
+        return orders.filter(order => order.status === activeTab);
     };
 
-    const getStatusBadgeClass = (status) => {
-        const statusClasses = {
-            pending: 'status-pending',
-            processing: 'status-processing',
-            packed: 'status-packed',
-            shipped: 'status-shipped',
-            delivered: 'status-delivered',
-            cancelled: 'status-cancelled'
-        };
-        return statusClasses[status] || 'status-pending';
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'pending': return <Clock size={14} />;
+            case 'processing': return <RefreshCw size={14} />;
+            case 'packed': return <Package size={14} />;
+            case 'shipped': return <Truck size={14} />;
+            case 'delivered': return <CheckCircle size={14} />;
+            case 'cancelled': return <XCircle size={14} />;
+            default: return <Clock size={14} />;
+        }
     };
 
     const formatDate = (dateString) => {
@@ -136,454 +162,391 @@ const AdminOrders = () => {
 
     const filteredOrders = getFilteredOrders();
 
-    if (loading) {
-        return (
-            <div className="admin-dashboard">
-                <div className="container">
+    return (
+        <div className="admin-page-content">
+            <div className="page-header">
+                <div>
+                    <h1>Manage Orders</h1>
+                    <p className="subtitle">Track and manage customer orders</p>
+                </div>
+                <div className="header-actions">
+                    <button className="btn btn-outline" onClick={fetchOrders} title="Refresh Orders">
+                        <RefreshCw size={18} /> Refresh
+                    </button>
+                </div>
+            </div>
+
+            {/* Order Statistics */}
+            <div className="stats-grid">
+                <div className="stat-card">
+                    <div className="stat-icon-wrapper icon-blue">
+                        <Package size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <p className="stat-label">Total Orders</p>
+                        <h3 className="stat-value">{orders.length}</h3>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon-wrapper icon-yellow">
+                        <Clock size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <p className="stat-label">Pending</p>
+                        <h3 className="stat-value">{orders.filter(o => o.status === 'pending').length}</h3>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon-wrapper icon-purple">
+                        <Truck size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <p className="stat-label">Shipped</p>
+                        <h3 className="stat-value">{orders.filter(o => o.status === 'shipped').length}</h3>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon-wrapper icon-green">
+                        <CheckCircle size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <p className="stat-label">Delivered</p>
+                        <h3 className="stat-value">{orders.filter(o => o.status === 'delivered').length}</h3>
+                    </div>
+                </div>
+            </div>
+
+            {/* NEW PILL TABS */}
+            <div className="mb-6">
+                <div className="filter-tabs-container">
+                    {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`filter-tab-pill ${activeTab === tab ? 'active' : ''}`}
+                        >
+                            {activeTab === tab && (
+                                <motion.div
+                                    layoutId="activeTabOrder"
+                                    className="active-pill-bg"
+                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
+                            )}
+                            <span className="capitalize">{tab}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Orders Table */}
+            <div className="products-table-container">
+                {loading ? (
                     <div className="loading-state">
+                        <div className="spinner"></div>
                         <p>Loading orders...</p>
                     </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="admin-dashboard">
-            <div className="container">
-                <div className="admin-header">
-                    <h1>Manage Orders</h1>
-                    <button className="btn-refresh" onClick={fetchOrders}>
-                        🔄 Refresh
-                    </button>
-                </div>
-
-                {/* Order Statistics */}
-                <div className="order-stats">
-                    <div className="stat-card">
-                        <h3>{orders.length}</h3>
-                        <p>Total Orders</p>
+                ) : filteredOrders.length === 0 ? (
+                    <div className="empty-state">
+                        <Package size={48} className="text-muted mb-2" />
+                        <p>No orders found matching this filter.</p>
                     </div>
-                    <div className="stat-card">
-                        <h3>{orders.filter(o => o.status === 'pending').length}</h3>
-                        <p>Pending</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{orders.filter(o => o.status === 'processing').length}</h3>
-                        <p>Processing</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{orders.filter(o => o.status === 'shipped').length}</h3>
-                        <p>Shipped</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{orders.filter(o => o.status === 'delivered').length}</h3>
-                        <p>Delivered</p>
-                    </div>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className="order-filters">
-                    <button
-                        className={filter === 'all' ? 'active' : ''}
-                        onClick={() => setFilter('all')}
-                    >
-                        All ({orders.length})
-                    </button>
-                    <button
-                        className={filter === 'pending' ? 'active' : ''}
-                        onClick={() => setFilter('pending')}
-                    >
-                        Pending ({orders.filter(o => o.status === 'pending').length})
-                    </button>
-                    <button
-                        className={filter === 'processing' ? 'active' : ''}
-                        onClick={() => setFilter('processing')}
-                    >
-                        Processing ({orders.filter(o => o.status === 'processing').length})
-                    </button>
-                    <button
-                        className={filter === 'shipped' ? 'active' : ''}
-                        onClick={() => setFilter('shipped')}
-                    >
-                        Shipped ({orders.filter(o => o.status === 'shipped').length})
-                    </button>
-                    <button
-                        className={filter === 'delivered' ? 'active' : ''}
-                        onClick={() => setFilter('delivered')}
-                    >
-                        Delivered ({orders.filter(o => o.status === 'delivered').length})
-                    </button>
-                    <button
-                        className={filter === 'cancelled' ? 'active' : ''}
-                        onClick={() => setFilter('cancelled')}
-                    >
-                        Cancelled ({orders.filter(o => o.status === 'cancelled').length})
-                    </button>
-                </div>
-
-                {/* Orders Table */}
-                <div className="admin-card">
-                    {filteredOrders.length === 0 ? (
-                        <div className="empty-state">
-                            <p>No orders found</p>
-                        </div>
-                    ) : (
-                        <div className="orders-table-container">
-                            <table className="orders-table">
-                                <thead>
-                                    <tr>
-                                        <th>Order #</th>
-                                        <th>Date</th>
-                                        <th>Customer</th>
-                                        <th>Items</th>
-                                        <th>Total</th>
-                                        <th>Payment</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredOrders.map(order => (
-                                        <tr key={order.id}>
-                                            <td className="order-number">#{order.orderNumber}</td>
-                                            <td>{formatDate(order.createdAt)}</td>
-                                            <td>
-                                                <div className="customer-info">
-                                                    <strong>{order.shippingAddress?.fullName || 'N/A'}</strong>
-                                                    <span>{order.email}</span>
-                                                </div>
-                                            </td>
-                                            <td>{order.items?.length || 0} items</td>
-                                            <td className="order-total">₹{order.total?.toFixed(2)}</td>
-                                            <td>
-                                                <span className={`payment-badge ${order.paymentMethod === 'cod' ? 'payment-cod' : 'payment-online'}`}>
-                                                    {order.paymentMethod === 'cod' ? 'COD' : 'Online'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className={`status-badge ${getStatusBadgeClass(order.status)}`}>
-                                                    {order.status}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <button
-                                                    className="btn-view"
-                                                    onClick={() => setSelectedOrder(order)}
-                                                >
-                                                    View Details
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-
-                {/* Order Details Modal */}
-                {selectedOrder && (
-                    <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
-                        <div className="modal-content order-details-modal" onClick={(e) => e.stopPropagation()}>
-                            <div className="modal-header">
-                                <h2>Order Details - #{selectedOrder.orderNumber}</h2>
-                                <button className="btn-close" onClick={() => setSelectedOrder(null)}>×</button>
-                            </div>
-
-                            <div className="modal-body">
-                                {/* Order Info */}
-                                <div className="detail-section">
-                                    <h3>Order Information</h3>
-                                    <div className="detail-grid">
-                                        <div>
-                                            <label>Order Date:</label>
-                                            <p>{formatDate(selectedOrder.createdAt)}</p>
+                ) : (
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredOrders.map(order => (
+                                <tr key={order.id}>
+                                    <td className="font-mono font-bold text-primary">#{order.orderNumber}</td>
+                                    <td className="text-secondary text-sm">{formatDate(order.createdAt)}</td>
+                                    <td>
+                                        <div className="customer-cell">
+                                            <span className="font-medium">{order.shippingAddress?.fullName || 'N/A'}</span>
+                                            <span className="text-muted text-xs">{order.email}</span>
                                         </div>
-                                        <div>
-                                            <label>Status:</label>
-                                            <span className={`status-badge ${getStatusBadgeClass(selectedOrder.status)}`}>
-                                                {selectedOrder.status}
+                                    </td>
+                                    <td><span className="badge badge-neutral">{order.items?.length || 0} items</span></td>
+                                    <td className="font-medium">₹{order.total?.toFixed(2)}</td>
+                                    <td>
+                                        <span className={`badge ${order.paymentMethod === 'cod' ? 'badge-warning' : 'badge-success'}`}>
+                                            {order.paymentMethod === 'cod' ? 'COD' : 'Online'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span className={`status-pill status-${order.status}`}>
+                                            {getStatusIcon(order.status)}
+                                            {order.status}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button
+                                            className="btn-icon btn-view"
+                                            onClick={() => setSelectedOrder(order)}
+                                            title="View Details"
+                                        >
+                                            <Eye size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            {/* Order Details Modal */}
+            {selectedOrder && (
+                <div className="modal-backdrop" onClick={() => setSelectedOrder(null)}>
+                    <div className="modal-content order-details-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-xl">Order #{selectedOrder.orderNumber}</h2>
+                                    <span className={`status-pill status-${selectedOrder.status}`}>
+                                        {selectedOrder.status}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-secondary mt-1">{formatDate(selectedOrder.createdAt)}</p>
+                            </div>
+                            <button className="btn-icon-small" onClick={() => setSelectedOrder(null)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body-scroll">
+                            <div className="details-grid">
+                                {/* Customer & Shipping */}
+                                <div className="detail-card">
+                                    <h3><User size={16} /> Customer Info</h3>
+                                    <div className="info-list">
+                                        <div className="info-item">
+                                            <span className="label">Name</span>
+                                            <span className="value">{selectedOrder.shippingAddress?.fullName}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="label">Email</span>
+                                            <span className="value">{selectedOrder.email}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="label">Phone</span>
+                                            <span className="value">{selectedOrder.shippingAddress?.phone}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="label">Address</span>
+                                            <span className="value text-sm">
+                                                {selectedOrder.shippingAddress?.street}<br />
+                                                {selectedOrder.shippingAddress?.city}, {selectedOrder.shippingAddress?.state}<br />
+                                                {selectedOrder.shippingAddress?.zipCode}, {selectedOrder.shippingAddress?.country}
                                             </span>
                                         </div>
-                                        <div>
-                                            <label>Payment Method:</label>
-                                            <p>{selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : selectedOrder.paymentMethod?.toUpperCase()}</p>
+                                    </div>
+                                </div>
+
+                                {/* Order & Payment */}
+                                <div className="detail-card">
+                                    <h3><CreditCard size={16} /> Payment & Summary</h3>
+                                    <div className="info-list">
+                                        <div className="info-item">
+                                            <span className="label">Method</span>
+                                            <span className="value capitalize">{selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : selectedOrder.paymentMethod}</span>
                                         </div>
-                                        <div>
-                                            <label>Total Amount:</label>
-                                            <p className="amount">₹{selectedOrder.total?.toFixed(2)}</p>
+                                        <div className="info-item">
+                                            <span className="label">Subtotal</span>
+                                            <span className="value">₹{selectedOrder.subtotal?.toFixed(2) || selectedOrder.total?.toFixed(2)}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="label">Shipping</span>
+                                            <span className="value">₹0.00</span>
+                                        </div>
+                                        <div className="info-item total">
+                                            <span className="label">Total</span>
+                                            <span className="value text-primary">₹{selectedOrder.total?.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Customer Details */}
-                                <div className="detail-section">
-                                    <h3>Customer Details</h3>
-                                    <div className="detail-grid">
-                                        <div>
-                                            <label>Name:</label>
-                                            <p>{selectedOrder.shippingAddress?.fullName}</p>
-                                        </div>
-                                        <div>
-                                            <label>Email:</label>
-                                            <p>{selectedOrder.email}</p>
-                                        </div>
-                                        <div>
-                                            <label>Phone:</label>
-                                            <p>{selectedOrder.shippingAddress?.phone}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Shipping Address */}
-                                <div className="detail-section">
-                                    <h3>Shipping Address</h3>
-                                    <p>
-                                        {selectedOrder.shippingAddress?.street}<br />
-                                        {selectedOrder.shippingAddress?.city}, {selectedOrder.shippingAddress?.state} {selectedOrder.shippingAddress?.zipCode}<br />
-                                        {selectedOrder.shippingAddress?.country}
-                                    </p>
-                                </div>
-
-                                {/* Delivery & Tracking Info */}
+                                {/* Delivery Info if available */}
                                 {selectedOrder.delivery && (
-                                    <div className="detail-section tracking-info">
-                                        <h3>Delivery Information</h3>
-                                        <div className="detail-grid">
-                                            <div>
-                                                <label>Status:</label>
-                                                <p className="delivery-status-text">{selectedOrder.delivery.status?.toUpperCase()}</p>
-                                            </div>
-                                            <div>
-                                                <label>Courier:</label>
-                                                <p>{selectedOrder.delivery.courier || 'N/A'}</p>
-                                            </div>
-                                            <div>
-                                                <label>Tracking ID:</label>
-                                                <p>{selectedOrder.delivery.trackingId || 'N/A'}</p>
-                                            </div>
-                                            {selectedOrder.delivery.trackingUrl && (
-                                                <div className="full-width">
-                                                    <label>Tracking URL:</label>
-                                                    <p>
-                                                        <a href={selectedOrder.delivery.trackingUrl} target="_blank" rel="noopener noreferrer">
-                                                            Track on Shiprocket
-                                                        </a>
-                                                    </p>
+                                    <div className="detail-card full-width">
+                                        <h3><Truck size={16} /> Delivery Tracking</h3>
+                                        <div className="delivery-status-box">
+                                            <div className="status-steps">
+                                                <div className="step completed">
+                                                    <div className="dot"></div>
+                                                    <div className="label">Ordered</div>
                                                 </div>
-                                            )}
+                                                <div className={`step ${['processing', 'packed', 'shipped', 'delivered'].includes(selectedOrder.status) ? 'completed' : ''}`}>
+                                                    <div className="dot"></div>
+                                                    <div className="label">Processing</div>
+                                                </div>
+                                                <div className={`step ${['shipped', 'delivered'].includes(selectedOrder.status) ? 'completed' : ''}`}>
+                                                    <div className="dot"></div>
+                                                    <div className="label">Shipped</div>
+                                                </div>
+                                                <div className={`step ${selectedOrder.status === 'delivered' ? 'completed' : ''}`}>
+                                                    <div className="dot"></div>
+                                                    <div className="label">Delivered</div>
+                                                </div>
+                                            </div>
+                                            <div className="tracking-details">
+                                                <div className="track-row">
+                                                    <span className="text-secondary">Courier:</span>
+                                                    <span className="font-medium">{selectedOrder.delivery.courier || 'N/A'}</span>
+                                                </div>
+                                                <div className="track-row">
+                                                    <span className="text-secondary">Tracking ID:</span>
+                                                    <span className="font-mono">{selectedOrder.delivery.trackingId || 'N/A'}</span>
+                                                </div>
+                                                {selectedOrder.delivery.trackingUrl && (
+                                                    <a href={selectedOrder.delivery.trackingUrl} target="_blank" rel="noopener noreferrer" className="track-link">
+                                                        Track Package <ArrowUpRight size={14} />
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
+                            </div>
 
-                                {/* Order Items */}
-                                <div className="detail-section">
-                                    <h3>Order Items</h3>
-                                    <div className="order-items-list">
-                                        {selectedOrder.items?.map((item, index) => (
-                                            <div key={index} className="order-item">
+                            {/* Order Items */}
+                            <div className="order-items-section">
+                                <h3>Order Items ({selectedOrder.items?.length})</h3>
+                                <div className="order-items-list">
+                                    {selectedOrder.items?.map((item, index) => (
+                                        <div key={index} className="order-item-row">
+                                            <div className="item-image">
                                                 <img src={item.image} alt={item.name} />
-                                                <div className="item-details">
-                                                    <h4>{item.name}</h4>
-                                                    <p>Size: {item.selectedSize} | Color: {item.selectedColor}</p>
-                                                    <p>Quantity: {item.quantity}</p>
-                                                </div>
-                                                <div className="item-price">
-                                                    ₹{(item.price * item.quantity).toFixed(2)}
+                                            </div>
+                                            <div className="item-details">
+                                                <h4>{item.name}</h4>
+                                                <div className="item-meta">
+                                                    <span className="meta-tag">Size: {item.selectedSize}</span>
+                                                    <span className="meta-tag">Color: {item.selectedColor}</span>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="item-qty">
+                                                x{item.quantity}
+                                            </div>
+                                            <div className="item-price">
+                                                ₹{(item.price * item.quantity).toFixed(2)}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
+                            </div>
 
-                                {/* Update Status / Actions */}
-                                <div className="detail-section">
-                                    <h3>Update Order Status</h3>
-                                    <div className="status-actions">
-                                        {/* Initial Actions */}
-                                        {(selectedOrder.status === 'pending' || selectedOrder.status === 'placed' || selectedOrder.status === 'processing') && (
-                                            <button
-                                                className="btn-status btn-processing"
-                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'confirmed')}
-                                                disabled={updating}
-                                            >
-                                                Confirm Order
-                                            </button>
-                                        )}
+                            {/* Actions Bar */}
+                            <div className="modal-actions-bar">
+                                <div className="action-group">
+                                    {/* Action buttons based on status */}
+                                    {(selectedOrder.status === 'pending' || selectedOrder.status === 'placed' || selectedOrder.status === 'processing') && (
+                                        <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'confirmed')} disabled={updating}>
+                                            <CheckCircle size={16} /> Confirm Order
+                                        </button>
+                                    )}
 
-                                        {/* Shipment Initiation */}
-                                        {selectedOrder.status === 'confirmed' && !selectedOrder.delivery?.shipmentId && (
-                                            <button
-                                                className="btn-status btn-processing"
-                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
-                                                disabled={updating}
-                                            >
-                                                {updating ? 'Processing...' : 'Initiate Shipment (Shiprocket)'}
-                                            </button>
-                                        )}
+                                    {selectedOrder.status === 'confirmed' && !selectedOrder.delivery?.shipmentId && (
+                                        <button className="btn btn-primary btn-sm" onClick={() => handleInitiateShipment(selectedOrder.id)} disabled={updating}>
+                                            <Truck size={16} /> Initiate Shipment
+                                        </button>
+                                    )}
 
-                                        {/* Lifecycle Transitions */}
-                                        {selectedOrder.status === 'confirmed' && (
-                                            <button
-                                                className="btn-status btn-packed"
-                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'packed')}
-                                                disabled={updating}
-                                            >
-                                                Mark as Packed
-                                            </button>
-                                        )}
+                                    {selectedOrder.status === 'confirmed' && (
+                                        <button className="btn btn-outline btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'packed')} disabled={updating}>
+                                            <Package size={16} /> Mark Packed
+                                        </button>
+                                    )}
 
-                                        {selectedOrder.status === 'packed' && selectedOrder.delivery?.shipmentId && (
-                                            <button
-                                                className="btn-status btn-shipped"
-                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'shipped')}
-                                                disabled={updating}
-                                            >
-                                                Mark as Shipped
-                                            </button>
-                                        )}
+                                    {selectedOrder.status === 'packed' && selectedOrder.delivery?.shipmentId && (
+                                        <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'shipped')} disabled={updating}>
+                                            <Truck size={16} /> Mark Shipped
+                                        </button>
+                                    )}
 
-                                        {selectedOrder.status === 'packed' && !selectedOrder.delivery?.shipmentId && (
-                                            <button
-                                                className="btn-status btn-processing"
-                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
-                                                disabled={updating}
-                                            >
-                                                Initiate Shipment & Ship
-                                            </button>
-                                        )}
+                                    {selectedOrder.status === 'shipped' && (
+                                        <button className="btn btn-success btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'delivered')} disabled={updating}>
+                                            <CheckCircle size={16} /> Mark Delivered
+                                        </button>
+                                    )}
 
-                                        {selectedOrder.status === 'shipped' && (
-                                            <button
-                                                className="btn-status btn-delivered"
-                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'delivered')}
-                                                disabled={updating}
-                                            >
-                                                Mark as Delivered
-                                            </button>
-                                        )}
-
-                                        {/* Cancel Option */}
-                                        {['pending', 'placed', 'confirmed', 'processing'].includes(selectedOrder.status) && (
-                                            <button
-                                                className="btn-status btn-cancelled"
-                                                onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')}
-                                                disabled={updating}
-                                            >
-                                                Cancel Order
-                                            </button>
-                                        )}
-
-                                        {/* Retry Shipment */}
-                                        {selectedOrder.status === 'confirmed' && selectedOrder.delivery?.status === 'failed' && (
-                                            <button
-                                                className="btn-status btn-retry"
-                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
-                                                disabled={updating}
-                                            >
-                                                Retry Shipment
-                                            </button>
-                                        )}
-                                    </div>
+                                    {['pending', 'placed', 'confirmed', 'processing'].includes(selectedOrder.status) && (
+                                        <button className="btn btn-danger btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')} disabled={updating}>
+                                            <XCircle size={16} /> Cancel Order
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
-            {/* Shipment Location Selection Modal */}
-            {
-                showShipLocationModal && (
-                    <div className="modal-overlay" style={{ zIndex: 1100 }}>
-                        <div className="modal-content" style={{ maxWidth: '400px', padding: '25px', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()}>
-                            <div className="modal-header" style={{ marginBottom: '15px' }}>
-                                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Select Pickup Location</h3>
-                                <button
-                                    className="btn-close"
-                                    onClick={() => setShowShipLocationModal(false)}
-                                    disabled={updating}
-                                >×</button>
+            {/* Shipment Location Modal */}
+            {showShipLocationModal && (
+                <div className="modal-backdrop">
+                    <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3><MapPin size={20} /> Select Pickup Location</h3>
+                            <button className="btn-icon-small" onClick={() => setShowShipLocationModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-secondary mb-4">
+                                Choose the branch to ship Order #{orders.find(o => o.id === pendingShipmentOrderId)?.orderNumber} from:
+                            </p>
+
+                            <div className="form-group mb-4">
+                                <label className="form-label">Pickup Location</label>
+                                <select
+                                    className="form-select w-full"
+                                    value={['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation) ? pickupLocation : 'Custom'}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'Custom') {
+                                            setPickupLocation('');
+                                        } else {
+                                            setPickupLocation(e.target.value);
+                                        }
+                                    }}
+                                >
+                                    <option value="Outpost Branch">Outpost Branch</option>
+                                    <option value="Chavadi Branch">Chavadi Branch</option>
+                                    <option value="Pasumalai Branch">Pasumalai Branch</option>
+                                    <option value="Custom">Other (Custom)...</option>
+                                </select>
                             </div>
 
-                            <div className="modal-body">
-                                <p style={{ marginBottom: '15px', color: '#64748b' }}>
-                                    Choose the branch to ship Order #{orders.find(o => o.id === pendingShipmentOrderId)?.orderNumber} from:
-                                </p>
-
-                                <div className="form-group" style={{ marginBottom: '20px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>Pickup Location</label>
-                                    <select
-                                        value={['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation) ? pickupLocation : 'Custom'}
-                                        onChange={(e) => {
-                                            if (e.target.value === 'Custom') {
-                                                setPickupLocation('');
-                                            } else {
-                                                setPickupLocation(e.target.value);
-                                            }
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e2e8f0',
-                                            fontSize: '1rem',
-                                            backgroundColor: '#fff'
-                                        }}
-                                        disabled={updating}
-                                    >
-                                        <option value="Outpost Branch">Outpost Branch</option>
-                                        <option value="Chavadi Branch">Chavadi Branch</option>
-                                        <option value="Pasumalai Branch">Pasumalai Branch</option>
-                                        <option value="Custom">Other (Custom)...</option>
-                                    </select>
+                            {(!['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation)) && (
+                                <div className="form-group mb-4">
+                                    <input
+                                        type="text"
+                                        className="form-input w-full"
+                                        value={pickupLocation}
+                                        placeholder="Enter configured location name..."
+                                        onChange={(e) => setPickupLocation(e.target.value)}
+                                        autoFocus
+                                    />
                                 </div>
+                            )}
 
-                                {/* Show input if custom or not in the list */}
-                                {(!['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation)) && (
-                                    <div className="form-group" style={{ marginBottom: '20px' }}>
-                                        <input
-                                            type="text"
-                                            value={pickupLocation}
-                                            placeholder="Enter configured location name..."
-                                            onChange={(e) => setPickupLocation(e.target.value)}
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                                            autoFocus
-                                        />
-                                    </div>
-                                )}
-
-                                <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                                    <button
-                                        className="btn btn-outline"
-                                        onClick={() => setShowShipLocationModal(false)}
-                                        disabled={updating}
-                                        style={{ padding: '8px 16px', borderRadius: '6px' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        className="btn btn-primary" // Assuming you have this class, or inline generic style
-                                        onClick={confirmShipment}
-                                        disabled={updating}
-                                        style={{
-                                            padding: '8px 20px',
-                                            borderRadius: '6px',
-                                            backgroundColor: '#3b82f6',
-                                            color: 'white',
-                                            border: 'none',
-                                            cursor: updating ? 'not-allowed' : 'pointer',
-                                            opacity: updating ? 0.7 : 1
-                                        }}
-                                    >
-                                        {updating ? 'Initiating...' : 'Confirm & Ship'}
-                                    </button>
-                                </div>
+                            <div className="flex justify-end gap-2 mt-6">
+                                <button className="btn btn-outline" onClick={() => setShowShipLocationModal(false)} disabled={updating}>Cancel</button>
+                                <button className="btn btn-primary" onClick={confirmShipment} disabled={updating}>
+                                    {updating ? 'Processing...' : 'Confirm & Ship'}
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
         </div>
     );
 };
