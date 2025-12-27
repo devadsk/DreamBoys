@@ -1271,10 +1271,10 @@ export const updateMessage = async (messageId, updateData) => {
 };
 
 // Initiate Shipment via Shiprocket (Cloud Function)
-export const initiateShipment = async (orderId) => {
+export const initiateShipment = async (orderId, pickupLocation) => {
     try {
         const initiateShipmentFn = httpsCallable(functions, 'initiateShipment');
-        const result = await initiateShipmentFn({ orderId });
+        const result = await initiateShipmentFn({ orderId, pickupLocation });
         return { success: true, data: result.data };
     } catch (error) {
         console.error('Error initiating shipment:', error);

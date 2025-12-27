@@ -136,7 +136,55 @@ const ProductDetail = () => {
     const loadRelatedProducts = async (category) => {
         const result = await getProducts();
         if (result.success) {
-            setRelatedProducts(result.data.filter(p => p.category === category && p.id !== id).slice(0, 4));
+            let allProducts = result.data.filter(p => p.id !== id);
+
+            // Algorithm to score products
+            // 1. Category relevance (Must match or be highly relevant)
+            // 2. Price proximity (Similar budget)
+            // 3. Rating (Social proof)
+            // 4. Name similarity (Content based)
+            // 5. Random factor (Variety)
+
+            const currentPrice = product?.price || 0;
+            const currentNameWords = product?.name?.toLowerCase().split(' ') || [];
+
+            const scoredProducts = allProducts.map(p => {
+                let score = 0;
+
+                // 1. Category Filter (Absolute requirement for now, or heavy weight)
+                if (p.category === category) score += 50;
+                else return null; // Strict category filter for now
+
+                // 2. Price Proximity (Max 10 points)
+                // Calculate % difference. If 0% diff -> 10 pts. If 100% diff -> 0 pts.
+                if (p.price) {
+                    const priceDiffRatio = Math.abs(p.price - currentPrice) / (currentPrice || 1);
+                    const priceScore = Math.max(0, (1 - priceDiffRatio) * 10);
+                    score += priceScore;
+                }
+
+                // 3. Rating (Max 10 points)
+                // p.rating is 0-5. Multiply by 2.
+                score += (p.rating || 0) * 2;
+
+                // 4. Name Similarity (Keywords)
+                if (p.name) {
+                    const nameWords = p.name.toLowerCase().split(' ');
+                    const commonWords = nameWords.filter(w => currentNameWords.includes(w) && w.length > 3); // Ignore small words
+                    score += commonWords.length * 2;
+                }
+
+                // 5. Random Shuffle Factor (0-5 points) to keep it fresh
+                score += Math.random() * 5;
+
+                return { ...p, _score: score };
+            }).filter(p => p !== null);
+
+            // Sort by score descending
+            scoredProducts.sort((a, b) => b._score - a._score);
+
+            // Take top 4
+            setRelatedProducts(scoredProducts.slice(0, 4));
         }
     };
 
@@ -425,10 +473,7 @@ const ProductDetail = () => {
 
                         <div className="product-price-large">₹{product.price}</div>
 
-                        <div className="delivery-timer">
-                            <span className="timer-icon">🕒</span>
-                            <span>Order in <strong>02:30:25</strong> to get next day delivery</span>
-                        </div>
+
 
                         {/* Colors Component */}
                         {product.colors && product.colors.length > 0 && (
@@ -469,7 +514,11 @@ const ProductDetail = () => {
                             {selectedSize && (
                                 <div className={`stock-indicator ${availableStock <= 5 ? 'low-stock' : ''}`}>
                                     {availableStock > 0 ? (
-                                        cartQuantity > 0 ? `${availableStock} more available (${cartQuantity} in cart)` : `${availableStock} items left`
+                                        availableStock <= 10 ? (
+                                            cartQuantity > 0 ? `${availableStock} more available (${cartQuantity} in cart)` : `Only ${availableStock} items left!`
+                                        ) : (
+                                            'In Stock'
+                                        )
                                     ) : (
                                         cartQuantity > 0 ? `All items in cart (${cartQuantity})` : 'Out of Stock'
                                     )}
@@ -553,10 +602,10 @@ const ProductDetail = () => {
                                     <div className="accordion-body">
                                         <div className="shipping-grid-icons">
                                             <div className="ship-item">
-                                                <div className="ship-icon">🏷️</div>
+                                                <div className="ship-icon">🛡️</div>
                                                 <div className="ship-detail">
-                                                    <strong>Discount</strong>
-                                                    <span>Disc 50%</span>
+                                                    <strong>Secure</strong>
+                                                    <span>Verified Payment</span>
                                                 </div>
                                             </div>
                                             <div className="ship-item">
@@ -570,14 +619,27 @@ const ProductDetail = () => {
                                                 <div className="ship-icon">📅</div>
                                                 <div className="ship-detail">
                                                     <strong>Delivery Time</strong>
-                                                    <span>3-5 Working Days</span>
+                                                    <span>5-7 Working Days</span>
                                                 </div>
                                             </div>
                                             <div className="ship-item">
                                                 <div className="ship-icon">🚚</div>
                                                 <div className="ship-detail">
                                                     <strong>Estimated Arrival</strong>
-                                                    <span>10 - 12 October 2024</span>
+                                                    <span>
+                                                        {(() => {
+                                                            const date = new Date();
+                                                            const options = { day: 'numeric', month: 'short' };
+
+                                                            const start = new Date(date);
+                                                            start.setDate(date.getDate() + 5);
+
+                                                            const end = new Date(date);
+                                                            end.setDate(date.getDate() + 7);
+
+                                                            return `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
+                                                        })()}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>

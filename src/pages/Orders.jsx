@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getUserOrders, updateOrderStatus, createRefundRequest } from '../firebase/firebaseService';
+import { getUserOrders, updateOrderStatus, createRefundRequest, getProduct } from '../firebase/firebaseService';
 import { processRazorpayRefund, processCODRefund } from '../utils/razorpayRefund';
 import { motion, AnimatePresence } from 'framer-motion';
 import InlineLoader from '../components/InlineLoader';
@@ -19,6 +19,10 @@ const Orders = () => {
     const [cancelReason, setCancelReason] = useState('');
     const [refundReason, setRefundReason] = useState('');
     const [refundType, setRefundType] = useState('refund'); // 'refund' or 'replace'
+    const [replacementSize, setReplacementSize] = useState('');
+    const [replacementColor, setReplacementColor] = useState('');
+    const [replacementProduct, setReplacementProduct] = useState(null);
+    const [fetchingProduct, setFetchingProduct] = useState(false);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -69,14 +73,22 @@ const Orders = () => {
 
     const canCancel = (order) => {
         // Can cancel until delivery (all statuses before delivered)
-        return ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out-for-delivery'].includes(order.status);
+        return ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out-for-delivery', 'out_for_delivery'].includes(order.status);
     };
 
     const canRefundOrReplace = (order) => {
         if (order.status !== 'delivered') return false;
-        const deliveredDate = new Date(order.deliveredAt || order.createdAt);
-        const daysSinceDelivery = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
-        return daysSinceDelivery <= 7; // 7 days return window
+        // Use deliveredAt timestamp, fallback to updatedAt (since status is delivered)
+        // Do NOT use createdAt as that is when order was placed.
+        const deliveryTime = order.deliveredAt || order.updatedAt;
+        if (!deliveryTime) return false; // Safety check
+
+        const deliveredDate = new Date(deliveryTime);
+        const currentDate = new Date();
+        const timeDiff = currentDate - deliveredDate;
+        const daysSinceDelivery = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+        return daysSinceDelivery <= 2; // 2 days return window from DELIVERY date
     };
 
     const getCancellationRefund = (order) => {
@@ -176,6 +188,8 @@ const Orders = () => {
                 amount: selectedOrder.total,
                 paymentMethod: selectedOrder.paymentMethod,
                 paymentId: selectedOrder.paymentDetails?.razorpay_payment_id || null,
+                replacementSize: refundType === 'replace' ? replacementSize : null,
+                replacementColor: refundType === 'replace' ? replacementColor : null,
                 createdAt: new Date().toISOString()
             };
 
@@ -205,6 +219,27 @@ const Orders = () => {
     const generateInvoice = (order) => {
         setSelectedOrder(order);
         setShowInvoice(true);
+    };
+
+    const openRefundModal = async (order) => {
+        setSelectedOrder(order);
+        setShowRefundModal(true);
+        setReplacementProduct(null);
+
+        // If it's a replacement, try to fetch fresh product data to check stock
+        // Assuming single item per order for now or taking the first item logic
+        const firstItem = order.items?.[0];
+        setReplacementSize(firstItem?.selectedSize || '');
+        setReplacementColor(firstItem?.selectedColor || '');
+
+        if (firstItem?.productId) {
+            setFetchingProduct(true);
+            const result = await getProduct(firstItem.productId);
+            if (result.success) {
+                setReplacementProduct(result.data);
+            }
+            setFetchingProduct(false);
+        }
     };
 
     const printInvoice = () => {
@@ -450,10 +485,7 @@ const Orders = () => {
                                             {canRefundOrReplace(order) && (
                                                 <button
                                                     className="btn-action btn-refund"
-                                                    onClick={() => {
-                                                        setSelectedOrder(order);
-                                                        setShowRefundModal(true);
-                                                    }}
+                                                    onClick={() => openRefundModal(order)}
                                                 >
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <polyline points="23 4 23 10 17 10"></polyline>
@@ -715,10 +747,83 @@ const Orders = () => {
                                 </div>
 
                                 <div className="return-info">
-                                    <p>✓ 7-day return window</p>
+                                    <p>✓ 2-day return/replace window</p>
                                     <p>✓ Free pickup from your address</p>
                                     <p>✓ {refundType === 'refund' ? 'Refund in 5-7 days' : 'Replacement in 7-10 days'}</p>
                                 </div>
+
+                                {refundType === 'replace' && (
+                                    <div className="replacement-options" style={{ marginBottom: '20px' }}>
+                                        {fetchingProduct ? (
+                                            <p style={{ textAlign: 'center', color: '#6b7280' }}>Checking stock availability...</p>
+                                        ) : !replacementProduct ? (
+                                            <div className="stock-error" style={{ textAlign: 'center', padding: '20px', background: '#fee2e2', borderRadius: '8px', color: '#991b1b' }}>
+                                                <p><strong>Product Not Available</strong></p>
+                                                <p style={{ fontSize: '0.9rem' }}>This product is currently unavailable for replacement.</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="form-group">
+                                                    <label>Select Size</label>
+                                                    <select
+                                                        value={replacementSize}
+                                                        onChange={(e) => setReplacementSize(e.target.value)}
+                                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                                                    >
+                                                        <option value="">Select Size</option>
+                                                        {replacementProduct.sizes?.map(size => {
+                                                            // Check if this size has ANY stock in ANY color (or currently selected color)
+                                                            const hasStock = replacementProduct.colors.some(color => {
+                                                                const stock = replacementProduct.colorSizeStock?.[color]?.[size] || 0;
+                                                                return stock > 0;
+                                                            });
+
+                                                            if (!hasStock) return null; // Don't show fully out of stock items
+
+                                                            return <option key={size} value={size}>{size}</option>;
+                                                        })}
+                                                    </select>
+                                                </div>
+
+                                                {replacementSize && (
+                                                    <div className="form-group">
+                                                        <label>Select Color</label>
+                                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                            {replacementProduct.colors?.map(color => {
+                                                                const stock = replacementProduct.colorSizeStock?.[color]?.[replacementSize] || 0;
+                                                                if (stock <= 0) return null; // Hide out of stock colors for this size
+
+                                                                return (
+                                                                    <div
+                                                                        key={color}
+                                                                        onClick={() => setReplacementColor(color)}
+                                                                        style={{
+                                                                            padding: '8px 16px',
+                                                                            borderRadius: '20px',
+                                                                            border: replacementColor === color ? '2px solid #10b981' : '1px solid #e5e7eb',
+                                                                            background: replacementColor === color ? '#ecfdf5' : 'white',
+                                                                            color: replacementColor === color ? '#047857' : '#374151',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.9rem'
+                                                                        }}
+                                                                    >
+                                                                        {color}
+                                                                        {stock <= 5 && <span style={{ fontSize: '0.7em', color: '#ef4444', marginLeft: '4px' }}>(Low)</span>}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        {replacementProduct.colors?.every(color => (replacementProduct.colorSizeStock?.[color]?.[replacementSize] || 0) <= 0) && (
+                                                            <p style={{ color: '#ef4444', fontSize: '0.9rem', marginTop: '8px' }}>
+                                                                No colors available in this size. Please select another size.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="form-group">
                                     <label>Reason for {refundType === 'refund' ? 'Refund' : 'Replacement'} *</label>
@@ -739,7 +844,7 @@ const Orders = () => {
                                 <button
                                     className="btn btn-primary"
                                     onClick={handleRefundRequest}
-                                    disabled={processing}
+                                    disabled={processing || (refundType === 'replace' && !replacementProduct)}
                                 >
                                     {processing ? 'Submitting...' : `Request ${refundType === 'refund' ? 'Refund' : 'Replacement'}`}
                                 </button>

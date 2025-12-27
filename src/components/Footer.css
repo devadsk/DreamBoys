@@ -181,6 +181,16 @@
     color: rgba(255, 255, 255, 0.3);
 }
 
+.footer-created-by {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    text-align: center;
+}
+
+.footer-created-by p {
+    margin: 0;
+}
+
 /* ===== RESPONSIVE BREAKPOINTS ===== */
 
 /* Tablets and below */

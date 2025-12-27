@@ -94,7 +94,7 @@ const FAQ = () => {
         {
             category: 'returns',
             question: 'What is your return policy?',
-            answer: 'We offer easy returns within 7 days of delivery. Items must be unused, unwashed, with original tags attached. To return: 1) Go to "My Orders" and select the item. 2) Click "Return" and choose a reason. 3) Schedule a pickup or drop at our store. 4) Refund will be processed within 7-10 days after we receive and inspect the item.'
+            answer: 'We offer easy returns within 2 days of delivery. Items must be unused, unwashed, with original tags attached. To return: 1) Go to "My Orders" and select the item. 2) Click "Return" and choose a reason. 3) Schedule a pickup or drop at our store. 4) Refund will be processed within 7-10 days after we receive and inspect the item.'
         },
         {
             category: 'returns',
@@ -126,7 +126,7 @@ const FAQ = () => {
         {
             category: 'products',
             question: 'Are the product colors accurate?',
-            answer: 'We strive to display accurate colors, but actual colors may vary slightly due to screen settings and lighting. We provide multiple product images from different angles. Check customer photos in reviews for real-life color representation. If you\'re not satisfied with the color, you can return it within 7 days.'
+            answer: 'We strive to display accurate colors, but actual colors may vary slightly due to screen settings and lighting. We provide multiple product images from different angles. Check customer photos in reviews for real-life color representation. If you\'re not satisfied with the color, you can return it within 2 days.'
         },
         {
             category: 'products',

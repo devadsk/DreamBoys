@@ -46,7 +46,7 @@ const Checkout = () => {
         country: 'India'
     });
 
-    const [paymentMethod, setPaymentMethod] = useState('cod');
+    const [paymentMethod, setPaymentMethod] = useState('upi');
 
     // Load initial data
     useEffect(() => {
@@ -565,39 +565,16 @@ const Checkout = () => {
                                 <div className="payment-methods">
                                     {/* UPI Options */}
                                     <div
-                                        className={`payment-method-card ${paymentMethod.startsWith('upi') ? 'selected' : ''}`}
-                                        onClick={() => setPaymentMethod('upi-gpay')}
+                                        className={`payment-method-card ${paymentMethod === 'upi' ? 'selected' : ''}`}
+                                        onClick={() => setPaymentMethod('upi')}
                                     >
                                         <div className="radio-circle"></div>
                                         <div className="payment-logos-group">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/200px-UPI-Logo-vector.svg.png" alt="UPI" className="payment-logo-main" />
-                                            {/* <div className="payment-logos-sub">
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/120px-Google_Pay_Logo.svg.png" alt="GPay" />
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/PhonePe_Logo.png/120px-PhonePe_Logo.png" alt="PhonePe" />
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/120px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm" />
-                                            </div> */}
                                         </div>
                                         <div className="payment-info">
                                             <span className="payment-title">UPI Payment</span>
-                                            <span className="payment-desc">GPay, PhonePe, Paytm & more</span>
-                                            {paymentMethod.startsWith('upi') && (
-                                                <div className="sub-options">
-                                                    <label className={`sub-option ${paymentMethod === 'upi-gpay' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-gpay'} onChange={() => setPaymentMethod('upi-gpay')} />
-                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/120px-Google_Pay_Logo.svg.png" alt="GPay" className="sub-option-logo" />
-                                                    </label>
-                                                    <label className={`sub-option ${paymentMethod === 'upi-phonepe' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-phonepe'} onChange={() => setPaymentMethod('upi-phonepe')} />
-                                                        <img src="/payment-logos/phonepe.svg" alt="PhonePe" className="sub-option-logo" />
-
-                                                    </label>
-                                                    <label className={`sub-option ${paymentMethod === 'upi-paytm' ? 'active' : ''}`}>
-                                                        <input type="radio" name="upi" checked={paymentMethod === 'upi-paytm'} onChange={() => setPaymentMethod('upi-paytm')} />
-                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/120px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm" className="sub-option-logo" />
-
-                                                    </label>
-                                                </div>
-                                            )}
+                                            <span className="payment-desc">Google Pay, PhonePe, Paytm & more</span>
                                         </div>
                                     </div>
 

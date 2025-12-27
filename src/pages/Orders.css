@@ -172,6 +172,10 @@
 .order-actions {
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
+    /* Allow wrapping on smaller screens */
+    justify-content: flex-end;
+    /* Align to right */
 }
 
 .btn-action {
@@ -401,6 +405,9 @@
     max-width: 500px;
     width: 100%;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {
@@ -438,6 +445,8 @@
 
 .modal-body {
     padding: 24px;
+    overflow-y: auto;
+    flex: 1;
 }
 
 .refund-info {
@@ -625,6 +634,7 @@
     padding: 24px;
     border-top: 1px solid #e5e7eb;
     background: #f9fafb;
+    flex-shrink: 0;
 }
 
 .modal-actions .btn {

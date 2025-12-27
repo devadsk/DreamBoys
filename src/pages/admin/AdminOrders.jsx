@@ -12,6 +12,11 @@ const AdminOrders = () => {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [updating, setUpdating] = useState(false);
 
+    // Shipment Location Modal State
+    const [showShipLocationModal, setShowShipLocationModal] = useState(false);
+    const [pendingShipmentOrderId, setPendingShipmentOrderId] = useState(null);
+    const [pickupLocation, setPickupLocation] = useState('Outpost Branch');
+
     useEffect(() => {
         fetchOrders();
     }, []);
@@ -35,7 +40,7 @@ const AdminOrders = () => {
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         if (!window.confirm(`Update order status to "${newStatus}"?`)) {
-            return;
+
         }
 
         try {
@@ -59,24 +64,36 @@ const AdminOrders = () => {
         }
     };
 
-    const handleInitiateShipment = async (orderId) => {
-        if (!window.confirm('Initiate shipment via Shiprocket? This will create an AWB and schedule pickup.')) {
-            return;
-        }
+    const handleInitiateShipment = (orderId) => {
+        setPendingShipmentOrderId(orderId);
+        setPickupLocation('Outpost Branch'); // Default
+        setShowShipLocationModal(true);
+    };
+
+    const confirmShipment = async () => {
+        if (!pendingShipmentOrderId) return;
 
         try {
             setUpdating(true);
-            const res = await initiateShipment(orderId);
+            const res = await initiateShipment(pendingShipmentOrderId, pickupLocation);
             if (res.success) {
-                toast.success('Shipment initiated successfully!');
+                toast.success(`Shipment initiated from ${pickupLocation}!`);
                 const updatedDelivery = res.delivery || res.data?.delivery;
+
                 // Update local state
                 setOrders(orders.map(order =>
-                    order.id === orderId
+                    order.id === pendingShipmentOrderId
                         ? { ...order, status: 'shipped', delivery: updatedDelivery }
                         : order
                 ));
-                setSelectedOrder(prev => ({ ...prev, status: 'shipped', delivery: updatedDelivery }));
+
+                // Update selected order view if open
+                if (selectedOrder && selectedOrder.id === pendingShipmentOrderId) {
+                    setSelectedOrder(prev => ({ ...prev, status: 'shipped', delivery: updatedDelivery }));
+                }
+
+                setShowShipLocationModal(false);
+                setPendingShipmentOrderId(null);
             } else {
                 toast.error(`Shipment Initiation Failed: ${res.error}`);
             }
@@ -87,6 +104,7 @@ const AdminOrders = () => {
             setUpdating(false);
         }
     };
+
 
     const getFilteredOrders = () => {
         if (filter === 'all') return orders;
@@ -416,13 +434,23 @@ const AdminOrders = () => {
                                             </button>
                                         )}
 
-                                        {selectedOrder.status === 'packed' && (
+                                        {selectedOrder.status === 'packed' && selectedOrder.delivery?.shipmentId && (
                                             <button
                                                 className="btn-status btn-shipped"
                                                 onClick={() => handleStatusUpdate(selectedOrder.id, 'shipped')}
                                                 disabled={updating}
                                             >
                                                 Mark as Shipped
+                                            </button>
+                                        )}
+
+                                        {selectedOrder.status === 'packed' && !selectedOrder.delivery?.shipmentId && (
+                                            <button
+                                                className="btn-status btn-processing"
+                                                onClick={() => handleInitiateShipment(selectedOrder.id)}
+                                                disabled={updating}
+                                            >
+                                                Initiate Shipment & Ship
                                             </button>
                                         )}
 
@@ -464,6 +492,98 @@ const AdminOrders = () => {
                     </div>
                 )}
             </div>
+
+            {/* Shipment Location Selection Modal */}
+            {
+                showShipLocationModal && (
+                    <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                        <div className="modal-content" style={{ maxWidth: '400px', padding: '25px', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header" style={{ marginBottom: '15px' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Select Pickup Location</h3>
+                                <button
+                                    className="btn-close"
+                                    onClick={() => setShowShipLocationModal(false)}
+                                    disabled={updating}
+                                >×</button>
+                            </div>
+
+                            <div className="modal-body">
+                                <p style={{ marginBottom: '15px', color: '#64748b' }}>
+                                    Choose the branch to ship Order #{orders.find(o => o.id === pendingShipmentOrderId)?.orderNumber} from:
+                                </p>
+
+                                <div className="form-group" style={{ marginBottom: '20px' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>Pickup Location</label>
+                                    <select
+                                        value={['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation) ? pickupLocation : 'Custom'}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'Custom') {
+                                                setPickupLocation('');
+                                            } else {
+                                                setPickupLocation(e.target.value);
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            fontSize: '1rem',
+                                            backgroundColor: '#fff'
+                                        }}
+                                        disabled={updating}
+                                    >
+                                        <option value="Outpost Branch">Outpost Branch</option>
+                                        <option value="Chavadi Branch">Chavadi Branch</option>
+                                        <option value="Pasumalai Branch">Pasumalai Branch</option>
+                                        <option value="Custom">Other (Custom)...</option>
+                                    </select>
+                                </div>
+
+                                {/* Show input if custom or not in the list */}
+                                {(!['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation)) && (
+                                    <div className="form-group" style={{ marginBottom: '20px' }}>
+                                        <input
+                                            type="text"
+                                            value={pickupLocation}
+                                            placeholder="Enter configured location name..."
+                                            onChange={(e) => setPickupLocation(e.target.value)}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                            autoFocus
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                                    <button
+                                        className="btn btn-outline"
+                                        onClick={() => setShowShipLocationModal(false)}
+                                        disabled={updating}
+                                        style={{ padding: '8px 16px', borderRadius: '6px' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-primary" // Assuming you have this class, or inline generic style
+                                        onClick={confirmShipment}
+                                        disabled={updating}
+                                        style={{
+                                            padding: '8px 20px',
+                                            borderRadius: '6px',
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            border: 'none',
+                                            cursor: updating ? 'not-allowed' : 'pointer',
+                                            opacity: updating ? 0.7 : 1
+                                        }}
+                                    >
+                                        {updating ? 'Initiating...' : 'Confirm & Ship'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
         </div>
     );
 };

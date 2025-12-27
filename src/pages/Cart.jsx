@@ -328,7 +328,7 @@ const Cart = () => {
                                 </svg>
                                 <div>
                                     <strong>Easy Returns</strong>
-                                    <p>7-day return policy</p>
+                                    <p>2-day return policy</p>
                                 </div>
                             </div>
                         </div>

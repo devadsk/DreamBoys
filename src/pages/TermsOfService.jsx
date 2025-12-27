@@ -198,7 +198,7 @@ const TermsOfService = () => {
 
                         <h3>5.1 Return Policy</h3>
                         <ul>
-                            <li>Products may be returned within 7 days of delivery</li>
+                            <li>Products may be returned within 2 days of delivery</li>
                             <li>Items must be unused, unwashed, and in original condition with tags attached</li>
                             <li>Original packaging and invoice must be included</li>
                             <li>Certain items (intimate wear, sale items) may not be eligible for return</li>
@@ -207,7 +207,7 @@ const TermsOfService = () => {
                         <h3>5.2 Exchange Policy</h3>
                         <ul>
                             <li>Exchanges are subject to product availability</li>
-                            <li>Size and color exchanges are available within 7 days</li>
+                            <li>Size and color exchanges are available within 2 days</li>
                             <li>Exchange requests must meet return policy conditions</li>
                             <li>Additional charges may apply for price differences</li>
                         </ul>

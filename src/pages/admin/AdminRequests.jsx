@@ -80,7 +80,7 @@ const AdminRequests = () => {
                 newOrderStatus = 'cancelled';
 
                 // Process refund if online payment
-                if (request.paymentMethod === 'online' && request.paymentId) {
+                if (request.paymentMethod !== 'cod' && request.paymentId) {
                     toast.info('Processing refund...');
                     refundResult = await processRazorpayRefund(
                         request.paymentId,
@@ -240,7 +240,7 @@ const AdminRequests = () => {
 
             if (request.type === 'refund') {
                 // Process refund now that product is returned
-                if (request.paymentMethod === 'online' && request.paymentId) {
+                if (request.paymentMethod !== 'cod' && request.paymentId) {
                     toast.info('Processing refund...');
                     refundResult = await processRazorpayRefund(
                         request.paymentId,
@@ -264,14 +264,20 @@ const AdminRequests = () => {
                     refundedAt: new Date().toISOString(),
                     refundAmount: request.refundAmount,
                     refundStatus: updateData.refundStatus,
-                    refundId: updateData.refundId || null
+                    refundId: updateData.refundId || null,
+                    awaitingReturn: false, // Clear awaiting return flag
+                    customerNotification: `Refund of ₹${request.refundAmount.toFixed(2)} successful!`,
+                    customerNotificationRead: false
                 });
 
             } else if (request.type === 'replace') {
                 // Mark as ready for replacement shipment
                 await updateOrderStatus(request.orderId, 'replacement_processing', {
                     replacementProcessingAt: new Date().toISOString(),
-                    readyForReplacement: true
+                    readyForReplacement: true,
+                    awaitingReturn: false, // Clear awaiting return flag
+                    customerNotification: 'Product returned. Replacement processing started.',
+                    customerNotificationRead: false
                 });
 
                 toast.success('Product returned. Ready to ship replacement.');
@@ -281,9 +287,25 @@ const AdminRequests = () => {
 
             if (result.success) {
                 toast.success('Request completed!');
+
+                // Update local state to reflect changes immediately
+                setRequests(prevRequests => prevRequests.map(req => {
+                    if (req.id === request.id) {
+                        return {
+                            ...req,
+                            status: 'completed',
+                            awaitingReturn: false, // Clear flag locally
+                            completedAt: updateData.completedAt,
+                            refundStatus: updateData.refundStatus,
+                            refundId: updateData.refundId
+                        };
+                    }
+                    return req;
+                }));
+
                 setShowDetailModal(false);
                 setSelectedRequest(null);
-                loadRequests();
+                // loadRequests(); // Optional: reload from server to be 100% sure, but local update is faster
             }
         } catch (error) {
             toast.error(`Error: ${error.message}`);
@@ -420,7 +442,7 @@ const AdminRequests = () => {
                                     </div>
                                 )}
 
-                                {request.awaitingReturn && (
+                                {request.status === 'approved' && request.awaitingReturn && (
                                     <div className="awaiting-badge">
                                         📦 Awaiting Product Return
                                     </div>
@@ -569,6 +591,23 @@ const AdminRequests = () => {
                                                         </span>
                                                     </p>
                                                 </>
+                                            )}
+
+                                            {/* Return Shipment Info - Fetched from Order Data ideally, but maybe request has it if synced? 
+                                                Note: Request doc usually doesn't have return AWB unless we programmed the trigger to update Request doc too.
+                                                The trigger in index.js updates ORDER doc.
+                                                So this information might be missing here unless we sync it. 
+                                                However, checking if 'awaitingReturn' is true gives a hint.
+                                            */}
+                                            {selectedRequest.awaitingReturn && (
+                                                <div style={{ marginTop: '12px', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                    <p><strong>Return Logistics:</strong></p>
+                                                    <p style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                                                        Check Order #{selectedRequest.orderNumber} for AWB details.
+                                                        <br />
+                                                        (Backend auto-creates Shiprocket return upon approval)
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

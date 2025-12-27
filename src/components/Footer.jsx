@@ -88,9 +88,16 @@ const Footer = () => {
                 </div>
 
                 <div className="footer-bottom">
-                    <p className="footer-copyright">
-                        © {currentYear} DreamBoys. All rights reserved.
-                    </p>
+                    <div className="footer-copyright-wrapper">
+                        <p className="footer-copyright">
+                            © {currentYear} DreamBoys. All rights reserved.
+                        </p>
+                    </div>
+
+                    <div className="footer-created-by">
+                        <p>Created by [Name]</p>
+                    </div>
+
                     <div className="footer-legal">
                         <Link to="/privacy">Privacy Policy</Link>
                         <span className="footer-separator">•</span>

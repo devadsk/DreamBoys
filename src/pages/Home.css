@@ -787,6 +787,10 @@
         flex-direction: column;
         gap: var(--spacing-md);
     }
+
+    .scroll-indicator {
+        display: none;
+    }
 }
 
 /* ===== VIDEO INTRO SECTION ===== */
