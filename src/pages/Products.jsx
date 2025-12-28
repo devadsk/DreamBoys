@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getProducts } from '../firebase/firebaseService';
+import { getProducts, getCategories } from '../firebase/firebaseService';
 import { searchProducts } from '../utils/searchUtils';
 import InlineLoader from '../components/InlineLoader';
 import './Products.css';
@@ -19,6 +19,7 @@ const Products = () => {
     const [sortBy, setSortBy] = useState('default');
     const [inStockOnly, setInStockOnly] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false); // Mobile filter drawer
+    const [categoryMap, setCategoryMap] = useState({}); // value -> name mapping
 
 
     useEffect(() => {
@@ -34,10 +35,23 @@ const Products = () => {
     }, [searchParams]);
 
     const loadProducts = async () => {
-        const result = await getProducts();
-        if (result.success) {
-            setProducts(result.data);
+        const [productsRes, categoriesRes] = await Promise.all([
+            getProducts(),
+            getCategories()
+        ]);
+
+        if (productsRes.success) {
+            setProducts(productsRes.data);
         }
+
+        if (categoriesRes.success && categoriesRes.data.length > 0) {
+            const map = {};
+            categoriesRes.data.forEach(c => {
+                map[c.value] = c.name;
+            });
+            setCategoryMap(map);
+        }
+
         setLoading(false);
     };
 
@@ -214,7 +228,7 @@ const Products = () => {
                                             onChange={() => setCategoryFilter(categoryFilter === cat ? 'all' : cat)}
                                         />
                                         <label htmlFor={`cat-${cat}`}>
-                                            {cat}
+                                            {categoryMap[cat] || cat}
                                         </label>
                                     </div>
                                 ))}

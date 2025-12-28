@@ -1,131 +1,232 @@
 /* Admin Requests CSS */
 
-/* Overrides/Specifics for Requests Page using shared Admin Page structure */
-
-.requests-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: var(--admin-spacing-lg);
+/* Shared Tab Styles (replicated for consistency) */
+.filter-tabs-container {
+    display: flex;
+    gap: 8px;
+    padding: 4px;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    width: fit-content;
 }
 
-.request-card {
-    background: var(--admin-bg-card);
-    border: 1px solid var(--admin-border);
-    border-radius: var(--admin-radius-lg);
-    overflow: hidden;
-    transition: all 0.2s ease;
+.filter-tab-pill {
+    position: relative;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    border: none;
     cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+}
+
+.filter-tab-pill:hover {
+    color: #0f172a;
+}
+
+.filter-tab-pill.active {
+    color: #0f172a;
+}
+
+.active-pill-bg {
+    position: absolute;
+    inset: 0;
+    background: white;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    z-index: -1;
+}
+
+/* Page Layout */
+.requests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+}
+
+/* Professional Card Styling */
+.request-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
 }
 
 .request-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--admin-shadow-md);
-    border-color: var(--admin-border-hover);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
 }
 
 .request-card-header {
-    background: var(--admin-bg-secondary);
-    padding: var(--admin-spacing-md);
-    border-bottom: 1px solid var(--admin-border);
+    background: white;
+    /* Clean look */
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .request-card-body {
-    padding: var(--admin-spacing-md);
+    padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 12px;
+    flex: 1;
 }
 
+/* Typography & Badges */
 .request-type-badge {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 6px;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
-    color: var(--admin-text-primary);
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 6px;
 }
 
-/* Type Specific Styles */
 .type-cancel {
-    color: var(--admin-danger);
+    background: #fef2f2;
+    color: #dc2626;
 }
 
 .type-refund {
-    color: var(--admin-warning);
+    background: #fffbeb;
+    color: #d97706;
 }
 
 .type-replace {
-    color: var(--admin-info);
+    background: #eff6ff;
+    color: #2563eb;
 }
 
 .request-info-row {
     display: flex;
     justify-content: space-between;
-    font-size: 0.875rem;
+    align-items: center;
+    font-size: 0.9rem;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #f1f5f9;
+}
+
+.request-info-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .request-info-row .label {
-    color: var(--admin-text-secondary);
-}
-
-.request-info-row .value {
-    color: var(--admin-text-primary);
+    color: #64748b;
     font-weight: 500;
 }
 
+.request-info-row .value {
+    color: #0f172a;
+    font-weight: 600;
+}
+
 .request-reason-preview {
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px dashed var(--admin-border);
+    margin-top: 8px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
     font-size: 0.85rem;
 }
 
 .reason-text {
-    color: var(--admin-text-secondary);
+    color: #475569;
     font-style: italic;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin: 0;
+    line-height: 1.5;
 }
 
 .alert-badge {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border-radius: var(--admin-radius-md);
-    font-size: 0.75rem;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
     font-weight: 600;
+    margin-top: auto;
+    /* Push to bottom */
 }
 
 .alert-badge.warning {
-    background: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fcd34d;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #ffedd5;
 }
 
 .alert-badge.info {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #e0f2fe;
 }
 
+/* Modal Detail Styling */
+.details-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
 
-/* Modal Styles Specifics */
-.request-detail-grid {
-    display: grid;
-    gap: var(--admin-spacing-lg);
+.detail-card {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+}
+
+.detail-card h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
 }
 
 @media (min-width: 768px) {
-    .request-detail-grid {
+    .details-grid {
+        display: grid;
         grid-template-columns: 1fr 1fr;
+    }
+
+    .detail-card.full-width {
+        grid-column: span 2;
     }
 }

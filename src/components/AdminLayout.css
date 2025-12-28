@@ -211,13 +211,20 @@
 
 .badge-dot {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 8px;
-    height: 8px;
+    top: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
     background-color: var(--admin-error);
-    border-radius: 50%;
+    border-radius: 10px;
     border: 2px solid var(--admin-bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    padding: 0 4px;
 }
 
 .admin-profile .avatar {
@@ -250,6 +257,143 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 45;
+}
+
+/* Profile Dropdown Styles */
+.admin-profile-dropdown {
+    position: relative;
+}
+
+.admin-profile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.admin-profile:hover {
+    background-color: var(--admin-bg-hover);
+}
+
+.admin-profile svg.rotated {
+    transform: rotate(180deg);
+    transition: transform 0.2s;
+}
+
+.dropdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 98;
+}
+
+.profile-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.08);
+    min-width: 280px;
+    z-index: 99;
+    border: 1px solid var(--admin-border);
+    overflow: hidden;
+}
+
+.profile-dropdown-header {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.profile-avatar-large {
+    width: 48px;
+    height: 48px;
+    background-color: var(--admin-primary-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.profile-dropdown-header .profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-dropdown-header .profile-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: var(--admin-text-main);
+}
+
+.profile-dropdown-header .profile-email {
+    font-size: 13px;
+    color: var(--admin-text-muted);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-role-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background-color: var(--admin-primary-100);
+    color: var(--admin-primary-700);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+.profile-dropdown-divider {
+    height: 1px;
+    background: var(--admin-border);
+    margin: 4px 0;
+}
+
+.profile-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--admin-text-main);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+
+.profile-dropdown-item:hover {
+    background-color: var(--admin-bg-hover);
+}
+
+.profile-dropdown-item.logout {
+    color: var(--admin-error);
+}
+
+.profile-dropdown-item.logout:hover {
+    background-color: var(--admin-error-bg);
 }
 
 /* ===== RESPONSIVE ===== */

@@ -1,31 +1,84 @@
 /* Admin Messages Styles */
 
+.filter-tabs-container {
+    display: flex;
+    gap: 8px;
+    padding: 4px;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    width: fit-content;
+}
+
+.filter-tab-pill {
+    position: relative;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+}
+
+.filter-tab-pill:hover {
+    color: #0f172a;
+}
+
+.filter-tab-pill.active {
+    color: #0f172a;
+}
+
+.active-pill-bg {
+    position: absolute;
+    inset: 0;
+    background: white;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    z-index: -1;
+}
+
 .messages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: var(--admin-spacing-lg);
-    margin-top: var(--admin-spacing-md);
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
 }
 
 .message-card {
-    background: var(--admin-bg-card);
-    border: 1px solid var(--admin-border);
-    border-radius: var(--admin-radius-lg);
-    padding: var(--admin-spacing-lg);
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: var(--admin-spacing-md);
-    transition: all 0.2s ease;
+    gap: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
 }
 
 .message-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--admin-shadow-md);
-    border-color: var(--admin-border-hover);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
 }
 
-.status-pending-border {
-    border-left: 4px solid var(--admin-warning);
+/* Status indicator strip on left */
+.status-pending-border::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #f59e0b;
+    /* Amber for pending */
 }
 
 .message-card-header {
@@ -37,93 +90,128 @@
 .sender-profile {
     display: flex;
     align-items: center;
-    gap: var(--admin-spacing-md);
+    gap: 16px;
 }
 
 .avatar-placeholder {
-    width: 40px;
-    height: 40px;
-    background: var(--admin-bg-secondary);
-    color: var(--admin-text-primary);
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 1.125rem;
-    border: 1px solid var(--admin-border);
+    font-size: 1.25rem;
+    box-shadow: 0 2px 5px rgba(99, 102, 241, 0.3);
 }
 
 .sender-details {
     display: flex;
     flex-direction: column;
+    gap: 2px;
 }
 
 .sender-details h3 {
     margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--admin-text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
 }
 
 .message-meta {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    gap: 4px;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-pending {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+}
+
+.status-delivered {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #86efac;
 }
 
 .message-content {
     flex: 1;
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
 }
 
 .message-content .subject {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--admin-text-primary);
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
 }
 
 .message-content .body {
     margin: 0;
-    font-size: 0.875rem;
-    color: var(--admin-text-secondary);
-    line-height: 1.5;
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.6;
     white-space: pre-wrap;
-    /* Limit lines if needed, for instance: */
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
 .message-actions {
-    margin-top: auto;
-    padding-top: var(--admin-spacing-md);
-    border-top: 1px solid var(--admin-border);
+    padding-top: 16px;
+    border-top: 1px dashed #e2e8f0;
 }
 
-/* Admin Reply Box in Card */
+/* Admin Reply Box */
 .admin-reply-box {
-    background: var(--admin-bg-secondary);
-    border-radius: var(--admin-radius-md);
-    padding: var(--admin-spacing-md);
-    font-size: 0.875rem;
-    color: var(--admin-text-primary);
-    border-left: 2px solid var(--admin-primary);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 0.9rem;
+    color: #1e3a8a;
+    position: relative;
 }
 
 .reply-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 6px;
     font-size: 0.75rem;
-    color: var(--admin-text-secondary);
-    margin-bottom: 0.25rem;
-    font-weight: 500;
+    color: #3b82f6;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
-@media (max-width: 768px) {
+/* Responsive */
+@media (max-width: 640px) {
     .messages-grid {
         grid-template-columns: 1fr;
+    }
+
+    .message-card {
+        padding: 16px;
     }
 }

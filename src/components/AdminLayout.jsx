@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     ShoppingBag,
@@ -13,16 +13,41 @@ import {
     X,
     Search,
     Bell,
-    ChevronDown
+    ChevronDown,
+    ArrowLeft,
+    User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getAllRequests } from '../firebase/firebaseService';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, userData, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+    const [notificationCount, setNotificationCount] = useState(0);
+
+    // Fetch notification count (pending requests)
+    useEffect(() => {
+        const fetchNotificationCount = async () => {
+            try {
+                const requestsResult = await getAllRequests();
+                if (requestsResult.success) {
+                    const pendingCount = requestsResult.data.filter(r => r.status === 'pending').length;
+                    setNotificationCount(pendingCount);
+                }
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+            }
+        };
+
+        fetchNotificationCount();
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchNotificationCount, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -37,7 +62,6 @@ const AdminLayout = () => {
         { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
         { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
         { path: '/admin/products', icon: ShoppingBag, label: 'Products' },
-        { path: '/admin/users', icon: Users, label: 'Customers' },
         { path: '/admin/messages', icon: MessageSquare, label: 'Messages' },
         { path: '/admin/requests', icon: FileText, label: 'Requests' },
         { path: '/admin/content', icon: Settings, label: 'Content' },
@@ -57,6 +81,26 @@ const AdminLayout = () => {
             {/* Sidebar */}
             <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="admin-logo">
+                    <button
+                        onClick={() => navigate('/')}
+                        className="back-home-btn"
+                        title="Back to Home"
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'inherit',
+                            marginRight: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '4px',
+                            borderRadius: '50%',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
                     <div className="logo-icon">DB</div>
                     <span className="logo-text">DreamBoys Admin</span>
                     <button className="mobile-close" onClick={() => setSidebarOpen(false)}>
@@ -78,16 +122,13 @@ const AdminLayout = () => {
                         </NavLink>
                     ))}
 
-                    <button onClick={handleLogout} className="nav-item logout-btn">
-                        <LogOut size={20} />
-                        <span>Logout</span>
-                    </button>
+
                 </nav>
 
                 <div className="admin-user-mini">
-                    <div className="user-avatar">{currentUser?.email?.charAt(0).toUpperCase()}</div>
+                    <div className="user-avatar">{userData?.displayName?.charAt(0).toUpperCase() || currentUser?.email?.charAt(0).toUpperCase()}</div>
                     <div className="user-info">
-                        <p className="user-name">Admin User</p>
+                        <p className="user-name">{userData?.displayName || 'Admin User'}</p>
                         <p className="user-email">{currentUser?.email}</p>
                     </div>
                 </div>
@@ -105,18 +146,49 @@ const AdminLayout = () => {
                     </div>
 
                     <div className="topbar-right">
-                        {/* 
-                        <div className="search-bar">
-                            <Search size={18} />
-                            <input type="text" placeholder="Search..." />
-                        </div>
-                        */}
-                        <button className="icon-btn">
+                        {/* Notifications */}
+                        <Link to="/admin/requests" className="icon-btn" title={`${notificationCount} pending requests`}>
                             <Bell size={20} />
-                            <span className="badge-dot"></span>
-                        </button>
-                        <div className="admin-profile">
-                            <div className="avatar">{currentUser?.email?.charAt(0).toUpperCase()}</div>
+                            {notificationCount > 0 && <span className="badge-dot">{notificationCount}</span>}
+                        </Link>
+
+                        {/* Profile Dropdown */}
+                        <div className="admin-profile-dropdown">
+                            <button
+                                className="admin-profile"
+                                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                            >
+                                <div className="avatar">{userData?.displayName?.charAt(0).toUpperCase() || currentUser?.email?.charAt(0).toUpperCase()}</div>
+                                <ChevronDown size={16} className={profileDropdownOpen ? 'rotated' : ''} />
+                            </button>
+
+                            {profileDropdownOpen && (
+                                <>
+                                    <div className="dropdown-overlay" onClick={() => setProfileDropdownOpen(false)} />
+                                    <div className="profile-dropdown-menu">
+                                        <div className="profile-dropdown-header">
+                                            <div className="profile-avatar-large">
+                                                {userData?.displayName?.charAt(0).toUpperCase() || 'A'}
+                                            </div>
+                                            <div className="profile-info">
+                                                <p className="profile-name">{userData?.displayName || 'Admin User'}</p>
+                                                <p className="profile-email">{currentUser?.email}</p>
+                                                {userData?.role && <span className="profile-role-badge">{userData.role}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="profile-dropdown-divider" />
+                                        <Link to="/profile" className="profile-dropdown-item" onClick={() => setProfileDropdownOpen(false)}>
+                                            <User size={18} />
+                                            <span>My Profile</span>
+                                        </Link>
+                                        <div className="profile-dropdown-divider" />
+                                        <button className="profile-dropdown-item logout" onClick={handleLogout}>
+                                            <LogOut size={18} />
+                                            <span>Logout</span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </header>

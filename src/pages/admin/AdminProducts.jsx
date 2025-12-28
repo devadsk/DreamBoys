@@ -12,9 +12,10 @@ import {
     AlertCircle,
     FileText,
     Image as ImageIcon,
-    Download
+    Download,
+    Minus
 } from 'lucide-react';
-import { getProducts, addProduct, updateProduct, deleteProduct } from '../../firebase/firebaseService';
+import { getProducts, addProduct, updateProduct, deleteProduct, getCategories, addCategory } from '../../firebase/firebaseService';
 import { useToast } from '../../context/ToastContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { initializeApp } from 'firebase/app';
@@ -57,6 +58,15 @@ const AdminProducts = () => {
     const [newSizeQty, setNewSizeQty] = useState('');
     const [colorsInput, setColorsInput] = useState('');
 
+    const [categories, setCategories] = useState([
+        { name: 'Shirts', value: 'shirts' },
+        { name: 'T-Shirts', value: 'tshirts' },
+        { name: 'Jeans', value: 'jeans' },
+        { name: 'Jackets', value: 'jackets' }
+    ]);
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
     // Bulk import states - NEW WORKFLOW
     const [importStep, setImportStep] = useState(1); // 1: CSV, 2: Images, 3: Assignment, 4: Processing
     const [csvData, setCsvData] = useState('');
@@ -78,7 +88,35 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
 
     useEffect(() => {
         loadProducts();
+        fetchCategories();
     }, []);
+
+    const fetchCategories = async () => {
+        const res = await getCategories();
+        if (res.success && res.data.length > 0) {
+            setCategories(prev => {
+                const existing = new Set(prev.map(c => c.value));
+                const newOnes = res.data.filter(c => !existing.has(c.value));
+                return [...prev, ...newOnes];
+            });
+        }
+    };
+
+    const handleSaveCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        const value = newCategoryName.toLowerCase().replace(/\s+/g, '-');
+
+        // Optimistic update
+        const newCat = { name: newCategoryName, value };
+        setCategories(prev => [...prev, newCat]);
+        setFormData({ ...formData, category: value });
+        setIsAddingCategory(false);
+        setNewCategoryName('');
+
+        // Persist
+        await addCategory(newCat);
+        toast.showSuccess('New category added!');
+    };
 
     const loadProducts = async () => {
         setLoading(true);
@@ -696,8 +734,8 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                         </div>
 
                         <form onSubmit={handleSubmit} className="product-form">
-                            <div className="form-row">
-                                <div className="form-group">
+                            <div className="form-row three-col-layout">
+                                <div className="form-group" style={{ flex: '2' }}>
                                     <label className="form-label">Product Name *</label>
                                     <input
                                         type="text"
@@ -706,40 +744,79 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                                         value={formData.name}
                                         onChange={handleChange}
                                         required
+                                        placeholder="e.g. Premium Cotton Shirt"
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
+                                <div className="form-group" style={{ flex: '1' }}>
                                     <label className="form-label">Category *</label>
-                                    <select
-                                        name="category"
-                                        className="form-select"
-                                        value={formData.category}
+                                    {isAddingCategory ? (
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                value={newCategoryName}
+                                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                                placeholder="New Category Name"
+                                                autoFocus
+                                                style={{ flex: 1 }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="btn-icon-small"
+                                                onClick={handleSaveCategory}
+                                                style={{ color: '#16a34a', borderColor: '#bbf7d0', background: '#f0fdf4' }}
+                                                title="Save Category"
+                                            >
+                                                <Check size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn-icon-small"
+                                                onClick={() => setIsAddingCategory(false)}
+                                                style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2' }}
+                                                title="Cancel"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            name="category"
+                                            className="form-select"
+                                            value={formData.category}
+                                            onChange={(e) => {
+                                                if (e.target.value === '_add_new_') {
+                                                    setIsAddingCategory(true);
+                                                    setNewCategoryName('');
+                                                } else {
+                                                    handleChange(e);
+                                                }
+                                            }}
+                                            required
+                                        >
+                                            {categories.map(cat => (
+                                                <option key={cat.value} value={cat.value}>{cat.name}</option>
+                                            ))}
+                                            <option value="_add_new_" style={{ fontWeight: 'bold', color: 'var(--admin-primary)' }}>+ Add New Category</option>
+                                        </select>
+                                    )}
+                                </div>
+
+                                <div className="form-group" style={{ flex: '1' }}>
+                                    <label className="form-label">Price (₹) *</label>
+                                    <input
+                                        type="number"
+                                        name="price"
+                                        className="form-input"
+                                        value={formData.price}
                                         onChange={handleChange}
                                         required
-                                    >
-                                        <option value="shirts">Shirts</option>
-                                        <option value="tshirts">T-Shirts</option>
-                                        <option value="jeans">Jeans</option>
-                                        <option value="jackets">Jackets</option>
-                                    </select>
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                    />
                                 </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Price (₹) *</label>
-                                <input
-                                    type="number"
-                                    name="price"
-                                    className="form-input"
-                                    value={formData.price}
-                                    onChange={handleChange}
-                                    required
-                                    step="0.01"
-                                    min="0"
-                                />
                             </div>
 
                             <div className="form-group">
@@ -862,21 +939,48 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                                                 {defaultSizes.map(size => (
                                                     <div key={size} className="size-card">
                                                         <label className="size-card-label">{size}</label>
-                                                        <input
-                                                            type="number"
-                                                            className="size-card-input"
-                                                            value={formData.colorSizeStock['default']?.[size] || 0}
-                                                            onChange={(e) => {
-                                                                const newColorSizeStock = { ...formData.colorSizeStock };
-                                                                if (!newColorSizeStock['default']) {
-                                                                    newColorSizeStock['default'] = {};
-                                                                }
-                                                                newColorSizeStock['default'][size] = parseInt(e.target.value) || 0;
-                                                                setFormData({ ...formData, colorSizeStock: newColorSizeStock });
-                                                            }}
-                                                            min="0"
-                                                            placeholder="0"
-                                                        />
+                                                        <div className="qty-control">
+                                                            <button
+                                                                type="button"
+                                                                className="qty-btn"
+                                                                onClick={() => {
+                                                                    const currentVal = formData.colorSizeStock['default']?.[size] || 0;
+                                                                    const newVal = Math.max(0, currentVal - 1);
+                                                                    const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                    if (!newColorSizeStock['default']) newColorSizeStock['default'] = {};
+                                                                    newColorSizeStock['default'][size] = newVal;
+                                                                    setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                }}
+                                                            >
+                                                                <Minus size={14} />
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                className="size-card-input"
+                                                                value={formData.colorSizeStock['default']?.[size] || 0}
+                                                                onChange={(e) => {
+                                                                    const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                    if (!newColorSizeStock['default']) newColorSizeStock['default'] = {};
+                                                                    newColorSizeStock['default'][size] = parseInt(e.target.value) || 0;
+                                                                    setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                }}
+                                                                min="0"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="qty-btn"
+                                                                onClick={() => {
+                                                                    const currentVal = formData.colorSizeStock['default']?.[size] || 0;
+                                                                    const newVal = currentVal + 1;
+                                                                    const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                    if (!newColorSizeStock['default']) newColorSizeStock['default'] = {};
+                                                                    newColorSizeStock['default'][size] = newVal;
+                                                                    setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                }}
+                                                            >
+                                                                <Plus size={14} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -903,21 +1007,48 @@ jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
                                                             {defaultSizes.map(size => (
                                                                 <div key={size} className="size-card">
                                                                     <label className="size-card-label">{size}</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        className="size-card-input"
-                                                                        value={formData.colorSizeStock[color]?.[size] || 0}
-                                                                        onChange={(e) => {
-                                                                            const newColorSizeStock = { ...formData.colorSizeStock };
-                                                                            if (!newColorSizeStock[color]) {
-                                                                                newColorSizeStock[color] = {};
-                                                                            }
-                                                                            newColorSizeStock[color][size] = parseInt(e.target.value) || 0;
-                                                                            setFormData({ ...formData, colorSizeStock: newColorSizeStock });
-                                                                        }}
-                                                                        min="0"
-                                                                        placeholder="0"
-                                                                    />
+                                                                    <div className="qty-control">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="qty-btn"
+                                                                            onClick={() => {
+                                                                                const currentVal = formData.colorSizeStock[color]?.[size] || 0;
+                                                                                const newVal = Math.max(0, currentVal - 1);
+                                                                                const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                                if (!newColorSizeStock[color]) newColorSizeStock[color] = {};
+                                                                                newColorSizeStock[color][size] = newVal;
+                                                                                setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                            }}
+                                                                        >
+                                                                            <Minus size={14} />
+                                                                        </button>
+                                                                        <input
+                                                                            type="number"
+                                                                            className="size-card-input"
+                                                                            value={formData.colorSizeStock[color]?.[size] || 0}
+                                                                            onChange={(e) => {
+                                                                                const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                                if (!newColorSizeStock[color]) newColorSizeStock[color] = {};
+                                                                                newColorSizeStock[color][size] = parseInt(e.target.value) || 0;
+                                                                                setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                            }}
+                                                                            min="0"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            className="qty-btn"
+                                                                            onClick={() => {
+                                                                                const currentVal = formData.colorSizeStock[color]?.[size] || 0;
+                                                                                const newVal = currentVal + 1;
+                                                                                const newColorSizeStock = { ...formData.colorSizeStock };
+                                                                                if (!newColorSizeStock[color]) newColorSizeStock[color] = {};
+                                                                                newColorSizeStock[color][size] = newVal;
+                                                                                setFormData({ ...formData, colorSizeStock: newColorSizeStock });
+                                                                            }}
+                                                                        >
+                                                                            <Plus size={14} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>

@@ -266,7 +266,7 @@ const AdminOrders = () => {
                         </thead>
                         <tbody>
                             {filteredOrders.map(order => (
-                                <tr key={order.id}>
+                                <tr key={order.id} onClick={() => setSelectedOrder(order)} role="button" tabIndex={0}>
                                     <td className="font-mono font-bold text-primary">#{order.orderNumber}</td>
                                     <td className="text-secondary text-sm">{formatDate(order.createdAt)}</td>
                                     <td>
