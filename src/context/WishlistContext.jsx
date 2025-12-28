@@ -79,7 +79,13 @@ export const WishlistProvider = ({ children }) => {
     const addToWishlist = (product) => {
         console.log('❤️ addToWishlist called with:', {
             productId: product?.id,
-            currentUser: currentUser?.uid
+            currentUser: currentUser?.uid,
+            hasColors: !!product?.colors,
+            hasSizes: !!product?.sizes,
+            hasColorSizeStock: !!product?.colorSizeStock,
+            hasImages: !!product?.images,
+            hasColorImages: !!product?.colorImages,
+            fullProduct: product
         });
 
         if (!currentUser) {
@@ -93,7 +99,10 @@ export const WishlistProvider = ({ children }) => {
                 console.log('Product already in wishlist');
                 return prev;
             }
-            console.log('Adding product to wishlist');
+            console.log('Adding product to wishlist with all data:', {
+                ...product,
+                addedAt: new Date().toISOString()
+            });
             return [...prev, {
                 ...product,
                 addedAt: new Date().toISOString()
@@ -135,6 +144,18 @@ export const WishlistProvider = ({ children }) => {
     const moveToCart = (item, size, color, quantity, addToCartFn) => {
         if (!currentUser) return;
 
+        console.log('🛒 moveToCart called with item:', {
+            itemId: item?.id,
+            hasColors: !!item?.colors,
+            hasSizes: !!item?.sizes,
+            hasColorSizeStock: !!item?.colorSizeStock,
+            hasImages: !!item?.images,
+            hasColorImages: !!item?.colorImages,
+            selectedSize: size,
+            selectedColor: color,
+            quantity: quantity
+        });
+
         const productData = {
             id: item.id,
             name: item.name,
@@ -142,8 +163,16 @@ export const WishlistProvider = ({ children }) => {
             originalPrice: item.originalPrice,
             image: item.image,
             category: item.category,
-            stock: item.stock
+            stock: item.stock,
+            // Include variant-related fields for proper cart functionality
+            sizes: item.sizes,
+            colors: item.colors,
+            images: item.images,
+            colorImages: item.colorImages,
+            colorSizeStock: item.colorSizeStock
         };
+
+        console.log('🛒 Passing productData to addToCart:', productData);
 
         addToCartFn(productData, size, color, quantity);
         removeFromWishlist(item.id);

@@ -43,6 +43,33 @@ const ProductDetail = () => {
         setShowQuantity(false);
     }, [id]);
 
+    // Detect scroll position for footer transparency on mobile
+    useEffect(() => {
+        const handleScroll = () => {
+            const cartActions = document.querySelector('.cart-actions');
+            if (!cartActions) return;
+
+            const windowHeight = window.innerHeight;
+            const documentHeight = document.documentElement.scrollHeight;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+            // Check if user is within 200px of the bottom
+            const isNearBottom = scrollTop + windowHeight >= documentHeight - 200;
+
+            if (isNearBottom) {
+                cartActions.classList.add('at-footer');
+            } else {
+                cartActions.classList.remove('at-footer');
+            }
+        };
+
+        // Only add listener on mobile
+        if (window.innerWidth <= 480) {
+            window.addEventListener('scroll', handleScroll);
+            return () => window.removeEventListener('scroll', handleScroll);
+        }
+    }, []);
+
     // Swipe handling for mobile
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
@@ -827,19 +854,21 @@ const ProductDetail = () => {
                 {/* Related Products */}
                 <div className="related-products-ref">
                     <h2>You might also like</h2>
-                    <div className="related-products-list-ref">
-                        {relatedProducts.map(rel => (
-                            <Link to={`/product/${rel.id}`} key={rel.id} className="related-card-ref">
-                                <div className="related-img-box">
-                                    <img src={rel.image || rel.images?.[0]} alt={rel.name} />
-                                </div>
-                                <div className="related-info-box">
-                                    <h3>{rel.name}</h3>
-                                    <div className="related-rating">★ {rel.rating ? parseFloat(rel.rating).toFixed(1) : '0.0'}/5</div>
-                                    <div className="related-price">₹{rel.price}</div>
-                                </div>
-                            </Link>
-                        ))}
+                    <div className="related-products-swiper-container">
+                        <div className="related-products-list-ref">
+                            {relatedProducts.map(rel => (
+                                <Link to={`/product/${rel.id}`} key={rel.id} className="related-card-ref">
+                                    <div className="related-img-box">
+                                        <img src={rel.image || rel.images?.[0]} alt={rel.name} />
+                                    </div>
+                                    <div className="related-info-box">
+                                        <h3>{rel.name}</h3>
+                                        <div className="related-rating">★ {rel.rating ? parseFloat(rel.rating).toFixed(1) : '0.0'}/5</div>
+                                        <div className="related-price">₹{rel.price}</div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

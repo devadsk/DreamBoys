@@ -291,23 +291,237 @@
     cursor: not-allowed;
 }
 
-/* Responsive */
+/* Responsive - Tablet and Mobile */
 @media (max-width: 768px) {
     .variant-modal-content {
-        padding: 24px;
+        padding: 20px;
         width: 95%;
+        max-width: 420px;
+        border-radius: 12px;
+    }
+
+    .modal-close-btn {
+        top: 12px;
+        right: 12px;
+        width: 32px;
+        height: 32px;
+        font-size: 24px;
     }
 
     .variant-modal-content h2 {
-        font-size: 20px;
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+
+    .modal-product-info {
+        padding: 12px;
+        gap: 12px;
+        margin-bottom: 16px;
+        border-radius: 8px;
     }
 
     .modal-product-info img {
         width: 60px;
         height: 60px;
+        border-radius: 6px;
     }
 
+    .modal-product-info h3 {
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+
+    .modal-price {
+        font-size: 16px;
+    }
+
+    .modal-selection-section {
+        margin-bottom: 16px;
+    }
+
+    .modal-selection-section label {
+        font-size: 13px;
+        margin-bottom: 10px;
+    }
+
+    /* Color buttons - smaller */
+    .modal-color-options {
+        gap: 10px;
+    }
+
+    .modal-color-btn {
+        width: 36px;
+        height: 36px;
+        border-width: 2px;
+    }
+
+    .modal-color-btn.selected {
+        box-shadow: 0 0 0 1.5px white, 0 0 0 3px #000;
+    }
+
+    /* Size buttons - more compact */
+    .modal-size-options {
+        gap: 8px;
+    }
+
+    .modal-size-btn {
+        padding: 10px 18px;
+        font-size: 13px;
+        min-width: 50px;
+        border-radius: 6px;
+    }
+
+    /* Stock info */
+    .modal-stock-info {
+        font-size: 12px;
+        margin-top: 6px;
+    }
+
+    .no-stock-msg {
+        font-size: 13px;
+    }
+
+    /* Quantity selector */
+    .modal-quantity-selector {
+        gap: 12px;
+        margin-top: 6px;
+    }
+
+    .modal-quantity-selector button {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: 6px;
+    }
+
+    .modal-quantity-selector span {
+        font-size: 16px;
+        min-width: 32px;
+    }
+
+    /* Action buttons */
     .modal-actions {
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .modal-cancel-btn,
+    .modal-confirm-btn {
+        padding: 12px 20px;
+        font-size: 14px;
+        border-radius: 6px;
+    }
+}
+
+/* Small Mobile - Extra compact */
+@media (max-width: 480px) {
+    .variant-modal-content {
+        padding: 16px;
+        width: 96%;
+        border-radius: 10px;
+    }
+
+    .modal-close-btn {
+        top: 10px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        font-size: 20px;
+    }
+
+    .variant-modal-content h2 {
+        font-size: 16px;
+        margin-bottom: 14px;
+    }
+
+    .modal-product-info {
+        padding: 10px;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .modal-product-info img {
+        width: 50px;
+        height: 50px;
+    }
+
+    .modal-product-info h3 {
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .modal-price {
+        font-size: 14px;
+    }
+
+    .modal-selection-section {
+        margin-bottom: 14px;
+    }
+
+    .modal-selection-section label {
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+
+    /* Color buttons - even smaller */
+    .modal-color-options {
+        gap: 8px;
+    }
+
+    .modal-color-btn {
+        width: 32px;
+        height: 32px;
+        border-width: 2px;
+    }
+
+    /* Size buttons - compact */
+    .modal-size-options {
+        gap: 6px;
+    }
+
+    .modal-size-btn {
+        padding: 8px 14px;
+        font-size: 12px;
+        min-width: 44px;
+        border-radius: 5px;
+    }
+
+    /* Stock info */
+    .modal-stock-info {
+        font-size: 11px;
+    }
+
+    .no-stock-msg {
+        font-size: 12px;
+    }
+
+    /* Quantity selector */
+    .modal-quantity-selector {
+        gap: 10px;
+    }
+
+    .modal-quantity-selector button {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+
+    .modal-quantity-selector span {
+        font-size: 14px;
+        min-width: 28px;
+    }
+
+    /* Action buttons */
+    .modal-actions {
+        gap: 8px;
+        margin-top: 16px;
         flex-direction: column;
+    }
+
+    .modal-cancel-btn,
+    .modal-confirm-btn {
+        padding: 11px 18px;
+        font-size: 13px;
+        width: 100%;
     }
 }

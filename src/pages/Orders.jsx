@@ -567,9 +567,9 @@ const Orders = () => {
                                                     <br />
                                                     <small>Size: {item.selectedSize}, Color: {item.selectedColor}</small>
                                                 </td>
-                                                <td>{item.quantity}</td>
-                                                <td>₹{item.price.toFixed(2)}</td>
-                                                <td>₹{(item.price * item.quantity).toFixed(2)}</td>
+                                                <td data-label="Qty">{item.quantity}</td>
+                                                <td data-label="Price">₹{item.price.toFixed(2)}</td>
+                                                <td data-label="Total">₹{(item.price * item.quantity).toFixed(2)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -454,10 +454,49 @@ export const createOrder = async (orderData) => {
                 transaction.update(doc.ref, updates);
             }
 
-            // 4. Create Order
+            // 4. Create Order with new order number format: YYMMDDNNNNNN
             const ordersRef = collection(db, 'orders');
+
+            // Generate order number in format YYMMDDNNNNNN
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2); // Last 2 digits of year
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const datePrefix = `${year}${month}${day}`; // YYMMDD
+
+            // Get today's orders to find the next sequence number
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+            const todayOrdersQuery = query(
+                ordersRef,
+                where('createdAt', '>=', todayStart.toISOString()),
+                where('createdAt', '<=', todayEnd.toISOString())
+            );
+
+            let sequenceNumber = 1;
+            try {
+                const todayOrdersSnapshot = await getDocs(todayOrdersQuery);
+                const todayOrders = todayOrdersSnapshot.docs
+                    .map(doc => doc.data().orderNumber)
+                    .filter(num => num && num.startsWith(datePrefix));
+
+                if (todayOrders.length > 0) {
+                    // Extract sequence numbers and find the max
+                    const sequences = todayOrders.map(num => {
+                        const seq = num.slice(6); // Get last 6 digits
+                        return parseInt(seq, 10) || 0;
+                    });
+                    sequenceNumber = Math.max(...sequences) + 1;
+                }
+            } catch (queryError) {
+                // If query fails (e.g., no index), use timestamp-based fallback
+                console.warn('Could not query today\'s orders, using timestamp-based sequence');
+                sequenceNumber = now.getHours() * 10000 + now.getMinutes() * 100 + now.getSeconds();
+            }
+
+            const orderNumber = `${datePrefix}${String(sequenceNumber).padStart(6, '0')}`;
             const newOrderRef = doc(ordersRef); // Auto-ID
-            const orderNumber = 'ORD-' + Date.now();
 
             // Helper function to remove undefined values recursively
             const removeUndefined = (obj) => {

@@ -60,12 +60,36 @@ const Cart = () => {
     // Check if any items are out of stock
     const hasOutOfStockItems = validatedCart.some(item => item.stockStatus === 'out_of_stock');
 
+    // Track which items are currently being updated to prevent race conditions
+    const [updatingItems, setUpdatingItems] = useState(new Set());
+
     const handleQuantityChange = (item, change) => {
+        // Create unique key for this item
+        const itemKey = `${item.id}-${item.selectedSize}-${item.selectedColor}`;
+
+        // Prevent multiple simultaneous updates for the same item
+        if (updatingItems.has(itemKey)) {
+            return;
+        }
+
         const newQuantity = item.quantity + change;
         const maxStock = item.availableStock || item.stock || 99;
 
+        // Validate against current cart state
         if (newQuantity > 0 && newQuantity <= maxStock) {
+            // Mark item as updating
+            setUpdatingItems(prev => new Set(prev).add(itemKey));
+
             updateQuantity(item.id, item.selectedSize, item.selectedColor, newQuantity);
+
+            // Remove from updating set after a short delay
+            setTimeout(() => {
+                setUpdatingItems(prev => {
+                    const next = new Set(prev);
+                    next.delete(itemKey);
+                    return next;
+                });
+            }, 300);
         }
     };
 
@@ -158,12 +182,12 @@ const Cart = () => {
 
                                     <div className="cart-item-details">
                                         <h3>{item.name}</h3>
+                                        {getStockBadge(item)}
                                         <p className="cart-item-category">{item.category}</p>
                                         <div className="cart-item-options">
                                             <span className="option-label">Size: <strong>{item.selectedSize}</strong></span>
                                             <span className="option-label">Color: <strong>{item.selectedColor}</strong></span>
                                         </div>
-                                        {getStockBadge(item)}
                                         <div className="cart-item-price-mobile">
                                             <span className="price">₹{item.price}</span>
                                             {item.originalPrice && (
@@ -183,7 +207,8 @@ const Cart = () => {
                                         <div className="quantity-controls">
                                             <button
                                                 onClick={() => handleQuantityChange(item, -1)}
-                                                disabled={item.quantity <= 1}
+                                                disabled={item.quantity <= 1 || updatingItems.has(`${item.id}-${item.selectedSize}-${item.selectedColor}`)}
+                                                aria-label="Decrease quantity"
                                             >
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -192,7 +217,9 @@ const Cart = () => {
                                             <span className="quantity">{item.quantity}</span>
                                             <button
                                                 onClick={() => handleQuantityChange(item, 1)}
-                                                disabled={item.quantity >= (item.stock || 99)}
+                                                disabled={item.quantity >= (item.availableStock || item.stock || 0) || updatingItems.has(`${item.id}-${item.selectedSize}-${item.selectedColor}`)}
+                                                aria-label="Increase quantity"
+                                                title={item.quantity >= (item.availableStock || item.stock || 0) ? 'Maximum stock reached' : 'Increase quantity'}
                                             >
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -200,6 +227,13 @@ const Cart = () => {
                                                 </svg>
                                             </button>
                                         </div>
+
+                                        {/* Max stock indicator */}
+                                        {item.quantity >= (item.availableStock || item.stock || 0) && (item.availableStock || item.stock) > 0 && (
+                                            <div className="max-stock-message">
+                                                Maximum available quantity
+                                            </div>
+                                        )}
 
                                         <div className="cart-item-total">
                                             <span className="total-label">Total:</span>

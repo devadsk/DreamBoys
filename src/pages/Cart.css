@@ -284,6 +284,15 @@
     color: var(--color-primary);
 }
 
+/* Max Stock Message */
+.max-stock-message {
+    font-size: 0.6875rem;
+    color: #ea580c;
+    margin-top: 4px;
+    font-weight: 500;
+    text-align: right;
+}
+
 /* Cart Summary */
 .cart-summary-section {
     position: sticky;
@@ -837,9 +846,12 @@
     }
 
     .stock-badge {
-        font-size: 0.6875rem;
-        padding: 3px 8px;
-        margin-top: 4px;
+        display: none !important;
+    }
+
+    .max-stock-message {
+        font-size: 0.5625rem;
+        margin-top: 2px;
     }
 
     .checkout-warning {
@@ -1219,11 +1231,6 @@
         font-size: 0.625rem;
     }
 
-    .stock-badge {
-        font-size: 0.625rem;
-        padding: 2px 6px;
-    }
-
     .checkout-warning {
         font-size: 0.75rem;
         padding: 8px 10px;
@@ -1362,7 +1369,8 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-top: 8px;
+    margin-top: 4px;
+    margin-bottom: 4px;
 }
 
 .stock-badge.out-of-stock {

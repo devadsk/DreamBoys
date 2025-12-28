@@ -200,27 +200,49 @@ export const CartProvider = ({ children }) => {
     /**
      * Move item from cart to wishlist (save for later)
      */
-    const moveToWishlist = (item, addToWishlistFn) => {
+    const moveToWishlist = async (item, addToWishlistFn) => {
         if (!currentUser) return;
 
-        // Add to wishlist without size and color
-        const productData = {
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            originalPrice: item.originalPrice,
-            image: item.image,
-            category: item.category,
-            stock: item.stock,
-            sizes: item.sizes,
-            colors: item.colors,
-            images: item.images,
-            colorImages: item.colorImages,
-            colorSizeStock: item.colorSizeStock
-        };
+        // Import getProduct at the top if not already imported
+        const { getProduct } = await import('../firebase/firebaseService');
 
-        // Add to wishlist (no size/color)
-        addToWishlistFn(productData);
+        // Fetch the complete product data from Firestore to get all variant information
+        const result = await getProduct(item.id);
+
+        if (result.success && result.data) {
+            // Use the complete product data from Firestore
+            const fullProductData = result.data;
+
+            console.log('📦 Moving to wishlist with full product data:', {
+                id: fullProductData.id,
+                hasColors: !!fullProductData.colors,
+                hasSizes: !!fullProductData.sizes,
+                hasColorSizeStock: !!fullProductData.colorSizeStock,
+                hasImages: !!fullProductData.images,
+                hasColorImages: !!fullProductData.colorImages
+            });
+
+            // Add to wishlist with complete product data
+            addToWishlistFn(fullProductData);
+        } else {
+            // Fallback to item data if fetch fails
+            console.warn('⚠️ Could not fetch full product data, using cart item data');
+            const productData = {
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                originalPrice: item.originalPrice,
+                image: item.image,
+                category: item.category,
+                stock: item.stock,
+                sizes: item.sizes,
+                colors: item.colors,
+                images: item.images,
+                colorImages: item.colorImages,
+                colorSizeStock: item.colorSizeStock
+            };
+            addToWishlistFn(productData);
+        }
 
         // Remove from cart
         removeFromCart(item.id, item.selectedSize, item.selectedColor);

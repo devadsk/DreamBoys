@@ -876,6 +876,48 @@
     line-height: 1;
 }
 
+/* Video Intro - Mobile Responsive */
+@media (max-width: 768px) {
+
+    /* Position video to the left */
+    .video-background video {
+        transform: translateX(-25%);
+        width: 150%;
+    }
+
+    .video-logo {
+        width: 120px;
+        height: 120px;
+    }
+
+    .video-text {
+        font-size: clamp(2rem, 10vw, 4rem);
+    }
+
+    /* Hide the showcase section (rings and diamond) */
+    .hero-product-showcase {
+        display: none !important;
+    }
+
+    .hero-card-3d {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+
+    /* Position video more to the left on smaller screens */
+    .video-background video {
+        transform: translateX(-30%);
+        width: 160%;
+    }
+
+    .video-logo {
+        width: 100px;
+        height: 100px;
+    }
+}
+
 /* ===== RESPONSIVE BREAKPOINTS - HERO SECTION ===== */
 
 /* Tablets and below */

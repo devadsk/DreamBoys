@@ -544,16 +544,54 @@ body {
     font-size: 0.9rem;
 }
 
+/* Related Products Swiper */
+.related-products-swiper-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #ddd #f5f5f5;
+    padding-bottom: 10px;
+}
+
+.related-products-swiper-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.related-products-swiper-container::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+
+.related-products-swiper-container::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 10px;
+}
+
+.related-products-swiper-container::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+}
+
 .related-products-list-ref {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 30px;
+    display: flex;
+    gap: 20px;
+    width: max-content;
 }
 
 .related-card-ref {
     text-decoration: none;
     color: inherit;
     display: block;
+    flex-shrink: 0;
+    width: calc((100% - 90px) / 4);
+    /* 4 items on desktop */
+    min-width: 250px;
+    transition: transform 0.3s ease;
+}
+
+.related-card-ref:hover {
+    transform: translateY(-5px);
 }
 
 .related-img-box {
@@ -561,6 +599,8 @@ body {
     width: 100%;
     overflow: hidden;
     margin-bottom: 12px;
+    border-radius: 8px;
+    background: #f5f5f5;
 }
 
 .related-img-box img {
@@ -731,13 +771,28 @@ body {
         width: 100%;
     }
 
-    .related-products-list-ref {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
+    /* Related Products - 2 items visible on mobile */
+    .related-card-ref {
+        width: calc((100vw - 60px) / 2.2);
+        /* Show 2.2 items to indicate more */
+        min-width: 150px;
     }
 
     .related-img-box {
-        height: 250px;
+        height: 200px;
+        border-radius: 6px;
+    }
+
+    .related-info-box h3 {
+        font-size: 0.875rem;
+    }
+
+    .related-rating {
+        font-size: 0.75rem;
+    }
+
+    .related-price {
+        font-size: 1rem;
     }
 }
 
@@ -764,6 +819,11 @@ body {
         font-size: 1.8rem;
     }
 
+    /* Add padding to page for fixed cart button */
+    .product-detail-page {
+        padding-bottom: 120px;
+    }
+
     .cart-actions {
         position: fixed;
         bottom: 0;
@@ -775,6 +835,14 @@ body {
         z-index: 100;
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
         gap: 10px;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    /* Hide button completely when at footer */
+    .cart-actions.at-footer {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(10px);
     }
 
     .add-cart-btn-black {
@@ -783,8 +851,21 @@ body {
     }
 
     .right-column {
-        padding-bottom: 100px;
-        /* Space for fixed bottom bar */
+        padding-bottom: 0;
+    }
+
+    /* Related Products - Keep 2 items on small mobile */
+    .related-card-ref {
+        width: calc((100vw - 50px) / 2.2);
+        min-width: 140px;
+    }
+
+    .related-img-box {
+        height: 180px;
+    }
+
+    .related-info-box h3 {
+        font-size: 0.8125rem;
     }
 
     .related-products-list-ref {

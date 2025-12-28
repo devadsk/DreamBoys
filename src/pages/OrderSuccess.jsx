@@ -126,12 +126,11 @@ const OrderSuccess = () => {
                                         <tr key={index}>
                                             <td>
                                                 <div className="item-name">{item.name}</div>
-                                                <div className="item-sku text-muted">SKU: {item.id}</div>
                                             </td>
-                                            <td>{item.selectedSize} / {item.selectedColor}</td>
-                                            <td className="text-right">₹{item.price.toFixed(2)}</td>
-                                            <td className="text-center">{item.quantity}</td>
-                                            <td className="text-right">₹{(item.price * item.quantity).toFixed(2)}</td>
+                                            <td data-label="Size / Color">{item.selectedSize} / {item.selectedColor}</td>
+                                            <td data-label="Price" className="text-right">₹{item.price.toFixed(2)}</td>
+                                            <td data-label="Qty" className="text-center">{item.quantity}</td>
+                                            <td data-label="Total" className="text-right">₹{(item.price * item.quantity).toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
