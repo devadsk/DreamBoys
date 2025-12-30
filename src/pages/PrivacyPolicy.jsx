@@ -271,17 +271,12 @@ const PrivacyPolicy = () => {
 
                     <section id="contact">
                         <h2>10. Contact Us</h2>
-                        <p>If you have questions or concerns about this Privacy Policy or our data practices, please contact us:</p>
                         <div className="contact-info">
-                            <p><strong>DreamBoys Fashion</strong></p>
-                            <p>Email: <a href="mailto:privacy@dreamboys.com">privacy@dreamboys.com</a></p>
-                            <p>Email: <a href="mailto:support@dreamboys.com">support@dreamboys.com</a></p>
-                            <p>Phone: +1 (555) 123-4567</p>
-                            <p>Address: 19, Alagar Kovil Mainroad, Outpost, Madurai, Tamilnadu-625002</p>
+                            <p>
+                                If you have questions or concerns about this Privacy Policy or our data practices, please
+                                <Link to="/contact" className="contact-link"> visit our Contact Us page</Link>.
+                            </p>
                         </div>
-                        <p className="response-time">
-                            We will respond to your inquiry within 48 hours.
-                        </p>
                     </section>
 
                     <div className="legal-footer">
