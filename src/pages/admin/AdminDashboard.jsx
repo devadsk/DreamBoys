@@ -48,15 +48,19 @@ const AdminDashboard = () => {
                 getAllUsers()
             ]);
 
-            const totalRevenue = ordersData.reduce((sum, order) => sum + (order.total || 0), 0);
+            // Calculate revenue excluding cancelled orders and replacements (which have total: 0)
+            const totalRevenue = ordersData
+                .filter(order => !['cancelled', 'refund_approved', 'return_pickup_scheduled'].includes(order.status))
+                .filter(order => !order.isReplacement) // Exclude replacement orders (they have total: 0)
+                .reduce((sum, order) => sum + (order.total || 0), 0);
 
             setStats({
                 totalOrders: ordersData.length,
                 totalProducts: productsData.length,
                 totalUsers: usersData.length,
                 totalRevenue,
-                pendingOrders: ordersData.filter(o => o.status === 'pending').length,
-                processingOrders: ordersData.filter(o => o.status === 'processing').length,
+                pendingOrders: ordersData.filter(o => o.status === 'pending' || o.status === 'placed').length,
+                processingOrders: ordersData.filter(o => o.status === 'processing' || o.status === 'confirmed').length,
                 shippedOrders: ordersData.filter(o => o.status === 'shipped').length,
                 deliveredOrders: ordersData.filter(o => o.status === 'delivered').length
             });

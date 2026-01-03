@@ -92,7 +92,7 @@ const AdminOrders = () => {
 
     const handleInitiateShipment = (orderId) => {
         setPendingShipmentOrderId(orderId);
-        setPickupLocation('Outpost Branch'); // Default
+        setPickupLocation('Home'); // Default to 'Home' - the only location in Shiprocket
         setShowShipLocationModal(true);
     };
 
@@ -455,7 +455,8 @@ const AdminOrders = () => {
                                         </button>
                                     )}
 
-                                    {selectedOrder.status === 'confirmed' && !selectedOrder.delivery?.shipmentId && (
+                                    {/* Allow initiation from confirmed or packed status if not already initiated */}
+                                    {(selectedOrder.status === 'confirmed' || selectedOrder.status === 'packed') && !selectedOrder.delivery?.shipmentId && (
                                         <button className="btn btn-primary btn-sm" onClick={() => handleInitiateShipment(selectedOrder.id)} disabled={updating}>
                                             <Truck size={16} /> Initiate Shipment
                                         </button>
@@ -479,7 +480,8 @@ const AdminOrders = () => {
                                         </button>
                                     )}
 
-                                    {['pending', 'placed', 'confirmed', 'processing'].includes(selectedOrder.status) && (
+                                    {/* Allow cancellation from packed status too */}
+                                    {['pending', 'placed', 'confirmed', 'processing', 'packed'].includes(selectedOrder.status) && (
                                         <button className="btn btn-danger btn-sm" onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')} disabled={updating}>
                                             <XCircle size={16} /> Cancel Order
                                         </button>
@@ -508,34 +510,17 @@ const AdminOrders = () => {
                                 <label className="form-label">Pickup Location</label>
                                 <select
                                     className="form-select w-full"
-                                    value={['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation) ? pickupLocation : 'Custom'}
-                                    onChange={(e) => {
-                                        if (e.target.value === 'Custom') {
-                                            setPickupLocation('');
-                                        } else {
-                                            setPickupLocation(e.target.value);
-                                        }
-                                    }}
+                                    value={pickupLocation}
+                                    onChange={(e) => setPickupLocation(e.target.value)}
                                 >
                                     <option value="Outpost Branch">Outpost Branch</option>
                                     <option value="Chavadi Branch">Chavadi Branch</option>
                                     <option value="Pasumalai Branch">Pasumalai Branch</option>
-                                    <option value="Custom">Other (Custom)...</option>
+                                    <option value="Home">Home</option>
                                 </select>
                             </div>
 
-                            {(!['Outpost Branch', 'Chavadi Branch', 'Pasumalai Branch', 'Home'].includes(pickupLocation)) && (
-                                <div className="form-group mb-4">
-                                    <input
-                                        type="text"
-                                        className="form-input w-full"
-                                        value={pickupLocation}
-                                        placeholder="Enter configured location name..."
-                                        onChange={(e) => setPickupLocation(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                            )}
+
 
                             <div className="flex justify-end gap-2 mt-6">
                                 <button className="btn btn-outline" onClick={() => setShowShipLocationModal(false)} disabled={updating}>Cancel</button>

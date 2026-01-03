@@ -325,7 +325,31 @@ exports.initiateShipment = onCall({
         }
 
         // Create shipment in Shiprocket
-        const srResponse = await createShiprocketOrder(orderData, orderId, pickupLocation);
+        console.log(`Calling createShiprocketOrder with:`, {
+            orderId,
+            pickupLocation,
+            hasDeliverySnapshot: !!orderData.delivery?.snapshot,
+            hasShippingAddress: !!orderData.shippingAddress,
+            itemCount: orderData.items?.length || 0
+        });
+
+        let srResponse;
+        try {
+            srResponse = await createShiprocketOrder(orderData, orderId, pickupLocation);
+            console.log(`Shiprocket API response:`, {
+                shipment_id: srResponse.shipment_id,
+                order_id: srResponse.order_id,
+                awb_code: srResponse.awb_code,
+                courier_name: srResponse.courier_name
+            });
+        } catch (srError) {
+            console.error(`Shiprocket API Error:`, {
+                message: srError.message,
+                stack: srError.stack,
+                response: srError.response?.data || 'No response data'
+            });
+            throw new HttpsError('internal', `Shiprocket API Error: ${srError.message}`);
+        }
 
         const deliveryUpdate = {
             ...orderData.delivery,
@@ -345,12 +369,14 @@ exports.initiateShipment = onCall({
             ]
         };
 
+        console.log(`Updating order ${orderId} with delivery data`);
         await orderDoc.ref.update({
             status: 'shipped',
             delivery: deliveryUpdate,
             updatedAt: new Date().toISOString()
         });
 
+        console.log(`Shipment successfully created for order ${orderId}`);
         return {
             success: true,
             delivery: deliveryUpdate
@@ -469,64 +495,91 @@ exports.shiprocketWebhook = onRequest({
         res.status(500).send('Internal Error');
     }
 });
+// const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+
 /**
- * Firestore Trigger: Automatically initiate shipment when order is confirmed
+ * DISABLED: Auto-shipment triggers
+ * Orders are now only sent to Shiprocket when admin manually clicks "Initiate Shipment"
+ * This ensures proper pickup location selection and manual control over shipment creation
  */
-exports.onOrderConfirmed = onDocumentUpdated({
-    document: 'orders/{orderId}',
-    secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
-}, async (event) => {
-    const newValue = event.data.after.data();
-    const oldValue = event.data.before.data();
 
-    // Trigger only if status changed to 'confirmed'
-    if (newValue.status === 'confirmed' && oldValue.status !== 'confirmed') {
-        const orderId = event.params.orderId;
+/**
+ * Helper to consolidate auto-shipment logic (CURRENTLY UNUSED - kept for future reference)
+ */
+// async function autoInitiateShipment(orderData, orderId, ref) {
+//     if (orderData.status !== 'confirmed') return;
+//     if (orderData.delivery?.shipmentId) return;
 
-        // Skip if shipment already exists
-        if (newValue.delivery?.shipmentId) return;
+//     try {
+//         console.log(`Auto-initiating shipment for order: ${orderId}`);
+//         const srResponse = await createShiprocketOrder(orderData, orderId);
 
-        try {
-            console.log(`Auto-initiating shipment for order: ${orderId}`);
-            const srResponse = await createShiprocketOrder(newValue, orderId);
+//         const deliveryUpdate = {
+//             ...orderData.delivery,
+//             status: 'shipped',
+//             shipmentId: srResponse.shipment_id || null,
+//             courier: srResponse.courier_name || null,
+//             trackingId: srResponse.tracking_id || srResponse.awb_code || null,
+//             trackingUrl: srResponse.tracking_url || `https://shiprocket.co/tracking/${srResponse.tracking_id || srResponse.awb_code}`,
+//             history: [
+//                 ...(orderData.delivery?.history || []),
+//                 {
+//                     status: 'shipped',
+//                     message: 'Shipment created automatically.',
+//                     timestamp: new Date().toISOString()
+//                 }
+//             ]
+//         };
 
-            const deliveryUpdate = {
-                ...newValue.delivery,
-                status: 'shipped',
-                shipmentId: srResponse.shipment_id || null,
-                courier: srResponse.courier_name || null,
-                trackingId: srResponse.tracking_id || srResponse.awb_code || null,
-                trackingUrl: srResponse.tracking_url || `https://shiprocket.co/tracking/${srResponse.tracking_id || srResponse.awb_code}`,
-                history: [
-                    ...(newValue.delivery?.history || []),
-                    {
-                        status: 'shipped',
-                        message: 'Shipment created automatically after confirmation.',
-                        timestamp: new Date().toISOString()
-                    }
-                ]
-            };
+//         await ref.update({
+//             status: 'shipped',
+//             delivery: deliveryUpdate,
+//             updatedAt: new Date().toISOString()
+//         });
 
-            await event.data.after.ref.update({
-                status: 'shipped',
-                delivery: deliveryUpdate,
-                updatedAt: new Date().toISOString()
-            });
+//     } catch (error) {
+//         console.error(`Auto-Shipment Error for ${orderId}: ${error.message}`);
+//         await ref.update({
+//             'delivery.status': 'failed',
+//             'delivery.history': admin.firestore.FieldValue.arrayUnion({
+//                 status: 'failed',
+//                 message: `Auto-shipment failed: ${error.message}`,
+//                 timestamp: new Date().toISOString()
+//             })
+//         });
+//     }
+// }
 
-        } catch (error) {
-            console.error(`Auto-Shipment Error for ${orderId}:`, error);
-            // Update history with failure
-            await event.data.after.ref.update({
-                'delivery.status': 'failed',
-                'delivery.history': admin.firestore.FieldValue.arrayUnion({
-                    status: 'failed',
-                    message: `Auto-shipment failed: ${error.message}`,
-                    timestamp: new Date().toISOString()
-                })
-            });
-        }
-    }
-});
+/**
+ * DISABLED: Firestore Trigger - Automatically initiate shipment when order is created
+ * Reason: Admin should manually select pickup location before creating Shiprocket order
+ */
+// exports.onOrderCreated = onDocumentCreated({
+//     document: 'orders/{orderId}',
+//     secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
+// }, async (event) => {
+//     const data = event.data.data();
+//     if (data.status === 'confirmed') {
+//         await autoInitiateShipment(data, event.params.orderId, event.data.ref);
+//     }
+// });
+
+/**
+ * DISABLED: Firestore Trigger - Automatically initiate shipment when order is confirmed
+ * Reason: Admin should manually select pickup location before creating Shiprocket order
+ */
+// exports.onOrderConfirmed = onDocumentUpdated({
+//     document: 'orders/{orderId}',
+//     secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
+// }, async (event) => {
+//     const newValue = event.data.after.data();
+//     const oldValue = event.data.before.data();
+
+//     // Trigger only if status changed to 'confirmed'
+//     if (newValue.status === 'confirmed' && oldValue.status !== 'confirmed') {
+//         await autoInitiateShipment(newValue, event.params.orderId, event.data.after.ref);
+//     }
+// });
 
 /**
  * Firestore Trigger: Auto-Cancel Shiprocket Shipment when Request is Approved
@@ -564,39 +617,75 @@ exports.onRefundRequestAccepted = onDocumentUpdated({
             // LOGIC FOR CANCELLATION (Before Delivery)
             // ==========================================
             if (requestType === 'cancel') {
-                let cancelResult = null;
-                let cancelMethod = 'none';
-
-                // Strategy 1: Cancel by AWB
-                if (awb && !isDelivered) {
-                    try {
-                        cancelResult = await cancelShiprocketOrder(awb);
-                        cancelMethod = 'awb';
-                    } catch (awbError) {
-                        console.warn(`Failed to cancel via AWB: ${awbError.message}`);
-                    }
-                }
-
-                // Strategy 2: Cancel by Order ID
-                if ((!cancelResult || !cancelResult.success) && !isDelivered) {
-                    const srOrderId = shiprocketOrderId || orderData.orderNumber;
-                    if (srOrderId) {
-                        const idResult = await cancelShiprocketByOrderId(srOrderId);
-                        if (idResult && (idResult.status_code === 200 || idResult.message?.includes('cancelled'))) {
-                            cancelResult = idResult;
-                            cancelMethod = 'order_id';
-                        }
-                    }
-                }
-
-                if (cancelResult && (cancelResult.status_code === 200 || cancelMethod !== 'none')) {
+                // Check if shipment exists in Shiprocket before attempting cancellation
+                if (!orderData.delivery?.shipmentId) {
+                    console.log(`Order ${orderId} has no shipment - skipping Shiprocket cancellation (order never sent to Shiprocket)`);
+                    // Order was cancelled before shipment was initiated - no Shiprocket action needed
                     await orderDoc.ref.update({
                         'delivery.history': admin.firestore.FieldValue.arrayUnion({
-                            status: 'cancelled_via_admin',
-                            message: `Shipment cancelled automatically after approval.`,
+                            status: 'cancelled_before_shipment',
+                            message: 'Order cancelled before shipment was created.',
                             timestamp: new Date().toISOString()
                         })
                     });
+                } else {
+                    // Shipment exists - attempt cancellation in Shiprocket
+                    console.log(`Attempting Shiprocket cancellation for Order ${orderId}:`, {
+                        awb: awb || 'NOT_SET',
+                        shiprocketOrderId: shiprocketOrderId || 'NOT_SET',
+                        orderNumber: orderData.orderNumber,
+                        hasShipment: !!orderData.delivery?.shipmentId
+                    });
+
+                    let cancelResult = null;
+                    let cancelMethod = 'none';
+
+                    // Strategy 1: Cancel by AWB
+                    if (awb && !isDelivered) {
+                        try {
+                            console.log(`Attempting cancellation via AWB: ${awb}`);
+                            cancelResult = await cancelShiprocketOrder(awb);
+                            cancelMethod = 'awb';
+                            console.log(`Cancellation via AWB successful`);
+                        } catch (awbError) {
+                            console.warn(`Failed to cancel via AWB: ${awbError.message}`);
+                        }
+                    }
+
+                    // Strategy 2: Cancel by Shiprocket Order ID
+                    if ((!cancelResult || !cancelResult.success) && !isDelivered && shiprocketOrderId) {
+                        try {
+                            console.log(`Attempting cancellation via Shiprocket Order ID: ${shiprocketOrderId}`);
+                            const idResult = await cancelShiprocketByOrderId(shiprocketOrderId);
+                            if (idResult && (idResult.status_code === 200 || idResult.message?.includes('cancelled'))) {
+                                cancelResult = idResult;
+                                cancelMethod = 'order_id';
+                                console.log(`Cancellation via Order ID successful`);
+                            }
+                        } catch (idError) {
+                            console.error(`Failed to cancel via Order ID: ${idError.message}`);
+                        }
+                    }
+
+                    if (cancelResult && (cancelResult.status_code === 200 || cancelMethod !== 'none')) {
+                        await orderDoc.ref.update({
+                            'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                                status: 'cancelled_via_admin',
+                                message: `Shipment cancelled in Shiprocket via ${cancelMethod}.`,
+                                timestamp: new Date().toISOString()
+                            })
+                        });
+                        console.log(`Order ${orderId} successfully cancelled in Shiprocket`);
+                    } else {
+                        console.warn(`Could not cancel Order ${orderId} in Shiprocket - manual intervention may be required`);
+                        await orderDoc.ref.update({
+                            'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                                status: 'cancellation_failed',
+                                message: 'Automatic Shiprocket cancellation failed. Please cancel manually in Shiprocket dashboard.',
+                                timestamp: new Date().toISOString()
+                            })
+                        });
+                    }
                 }
             }
 
@@ -713,6 +802,20 @@ exports.onOrderCancelled = onDocumentUpdated({
     // Trigger only if status changed to 'cancelled'
     if (newValue.status === 'cancelled' && oldValue.status !== 'cancelled') {
         const orderId = event.params.orderId;
+
+        // Check if shipment exists in Shiprocket before attempting cancellation
+        if (!newValue.delivery?.shipmentId) {
+            console.log(`Order ${orderId} cancelled but has no shipment - skipping Shiprocket cancellation (order never sent to Shiprocket)`);
+            await event.data.after.ref.update({
+                'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                    status: 'cancelled_before_shipment',
+                    message: 'Order cancelled before shipment was created.',
+                    timestamp: new Date().toISOString()
+                })
+            });
+            return; // Exit early - no Shiprocket action needed
+        }
+
         console.log(`Order ${orderId} cancelled in Firestore. Syncing with Shiprocket...`);
 
         try {
@@ -720,9 +823,16 @@ exports.onOrderCancelled = onDocumentUpdated({
             const awb = newValue.delivery?.trackingId;
             const shiprocketOrderId = newValue.delivery?.shiprocketOrderId;
 
+            console.log(`Attempting Shiprocket cancellation for Order ${orderId}:`, {
+                awb: awb || 'NOT_SET',
+                shiprocketOrderId: shiprocketOrderId || 'NOT_SET',
+                orderNumber: newValue.orderNumber
+            });
+
             // Strategy 1: Cancel by AWB
             if (awb) {
                 try {
+                    console.log(`Attempting cancellation via AWB: ${awb}`);
                     cancelResult = await cancelShiprocketOrder(awb);
                     console.log(`Cancelled via AWB: ${awb}`);
                 } catch (e) {
@@ -730,21 +840,30 @@ exports.onOrderCancelled = onDocumentUpdated({
                 }
             }
 
-            // Strategy 2: Cancel by Order ID
+            // Strategy 2: Cancel by Shiprocket Order ID
             if ((!cancelResult || !cancelResult.success) && shiprocketOrderId) {
-                const idResult = await cancelShiprocketByOrderId(shiprocketOrderId);
-                if (idResult && (idResult.status_code === 200 || idResult.message?.includes('cancelled'))) {
-                    console.log(`Cancelled via Order ID: ${shiprocketOrderId}`);
-                    cancelResult = idResult;
+                try {
+                    console.log(`Attempting cancellation via Shiprocket Order ID: ${shiprocketOrderId}`);
+                    const idResult = await cancelShiprocketByOrderId(shiprocketOrderId);
+                    if (idResult && (idResult.status_code === 200 || idResult.message?.includes('cancelled'))) {
+                        console.log(`Cancelled via Order ID: ${shiprocketOrderId}`);
+                        cancelResult = idResult;
+                    }
+                } catch (idError) {
+                    console.error(`Failed to cancel via Order ID: ${idError.message}`);
                 }
             }
 
-            // Strategy 3: Cancel by Custom Order Number (Fallback)
-            if ((!cancelResult || !cancelResult.success)) {
-                // Often Shiprocket maps Custom Order ID to their system if verified
-                // But cancel endpoint expects Shiprocket internal ID. 
-                // We can't do much else without the internal ID or AWB.
-                console.warn('Could not cancel in Shiprocket: Missing AWB and Shiprocket Order ID');
+            // Log warning if both strategies failed
+            if (!cancelResult || !cancelResult.success) {
+                console.warn(`Could not cancel Order ${orderId} in Shiprocket: Missing or invalid AWB and Shiprocket Order ID`);
+                await event.data.after.ref.update({
+                    'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                        status: 'cancellation_failed',
+                        message: 'Automatic Shiprocket cancellation failed. Please cancel manually in Shiprocket dashboard.',
+                        timestamp: new Date().toISOString()
+                    })
+                });
             }
 
             if (cancelResult && (cancelResult.status_code === 200)) {
@@ -755,6 +874,7 @@ exports.onOrderCancelled = onDocumentUpdated({
                         timestamp: new Date().toISOString()
                     })
                 });
+                console.log(`Order ${orderId} successfully cancelled in Shiprocket`);
             }
 
         } catch (error) {

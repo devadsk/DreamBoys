@@ -226,19 +226,44 @@ const Orders = () => {
         setShowRefundModal(true);
         setReplacementProduct(null);
 
-        // If it's a replacement, try to fetch fresh product data to check stock
-        // Assuming single item per order for now or taking the first item logic
+        // Get the first item from the order
         const firstItem = order.items?.[0];
         setReplacementSize(firstItem?.selectedSize || '');
         setReplacementColor(firstItem?.selectedColor || '');
 
-        if (firstItem?.productId) {
+        // Cart items use 'id' field as the product ID (not 'productId')
+        // Check both for compatibility
+        const productId = firstItem?.id || firstItem?.productId;
+
+        if (productId) {
             setFetchingProduct(true);
-            const result = await getProduct(firstItem.productId);
-            if (result.success) {
-                setReplacementProduct(result.data);
+            console.log('Fetching product for replacement:', productId);
+            console.log('Item data:', firstItem);
+
+            try {
+                const result = await getProduct(productId);
+                console.log('Product fetch result:', result);
+
+                if (result.success && result.data) {
+                    console.log('Product data:', {
+                        name: result.data.name,
+                        colors: result.data.colors,
+                        sizes: result.data.sizes,
+                        colorSizeStock: result.data.colorSizeStock
+                    });
+                    setReplacementProduct(result.data);
+                } else {
+                    console.error('Failed to fetch product or no data:', result);
+                    setReplacementProduct(null);
+                }
+            } catch (error) {
+                console.error('Error fetching product:', error);
+                setReplacementProduct(null);
             }
+
             setFetchingProduct(false);
+        } else {
+            console.error('No product ID found in order item:', firstItem);
         }
     };
 
@@ -758,8 +783,11 @@ const Orders = () => {
                                             <p style={{ textAlign: 'center', color: '#6b7280' }}>Checking stock availability...</p>
                                         ) : !replacementProduct ? (
                                             <div className="stock-error" style={{ textAlign: 'center', padding: '20px', background: '#fee2e2', borderRadius: '8px', color: '#991b1b' }}>
-                                                <p><strong>Product Not Available</strong></p>
-                                                <p style={{ fontSize: '0.9rem' }}>This product is currently unavailable for replacement.</p>
+                                                <p><strong>Unable to Load Product</strong></p>
+                                                <p style={{ fontSize: '0.9rem' }}>We couldn't fetch the product details. Please try again or contact support.</p>
+                                                <p style={{ fontSize: '0.85rem', marginTop: '10px', color: '#6b7280' }}>
+                                                    Product ID: {selectedOrder.items?.[0]?.id || selectedOrder.items?.[0]?.productId || 'Unknown'}
+                                                </p>
                                             </div>
                                         ) : (
                                             <>

@@ -105,14 +105,22 @@ async function createShiprocketOrder(orderData, orderId, pickupLocation) {
     };
 
     try {
+        console.log('Sending request to Shiprocket API:', {
+            url: `${SHIPROCKET_API_URL}/orders/create/adhoc`,
+            order_id: payload.order_id,
+            pickup_location: payload.pickup_location
+        });
+
         const response = await axios.post(`${SHIPROCKET_API_URL}/orders/create/adhoc`, payload, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        console.log('Shiprocket raw response:', JSON.stringify(response.data, null, 2));
         const srData = response.data;
 
         // Step 2: Assign AWB automatically
         if (srData.shipment_id) {
+            console.log('Shipment ID found, assigning AWB:', srData.shipment_id);
             try {
                 const awbResponse = await axios.post(`${SHIPROCKET_API_URL}/courier/assign/awb`, {
                     shipment_id: srData.shipment_id
@@ -120,17 +128,27 @@ async function createShiprocketOrder(orderData, orderId, pickupLocation) {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
+                console.log('AWB assignment response:', JSON.stringify(awbResponse.data, null, 2));
+
                 if (awbResponse.data && awbResponse.data.response && awbResponse.data.response.data) {
                     const awbData = awbResponse.data.response.data;
                     srData.awb_code = awbData.awb_code;
                     srData.courier_name = awbData.courier_name;
                     srData.tracking_id = awbData.awb_code;
+                    console.log('AWB assigned successfully:', awbData.awb_code);
                 }
             } catch (awbError) {
                 console.error('AWB Assignment Error:', awbError.response?.data || awbError.message);
             }
+        } else {
+            console.warn('No shipment_id in Shiprocket response - cannot assign AWB');
         }
 
+        console.log('Returning srData:', {
+            shipment_id: srData.shipment_id,
+            order_id: srData.order_id,
+            awb_code: srData.awb_code
+        });
         return srData;
     } catch (error) {
         const srError = error.response?.data;
