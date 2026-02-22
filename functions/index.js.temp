@@ -1,0 +1,59 @@
+
+/**
+ * Firestore Trigger: Auto-Cancel Shiprocket Shipment when Request is Approved
+ */
+exports.onRefundRequestAccepted = onDocumentUpdated({
+    document: 'refundRequests/{requestId}',
+    secrets: ["SHIPROCKET_EMAIL", "SHIPROCKET_PASSWORD"]
+}, async (event) => {
+    const newValue = event.data.after.data();
+    const oldValue = event.data.before.data();
+
+    // Trigger only if status changed to 'approved' AND type is 'cancel'
+    if (newValue.status === 'approved' && oldValue.status !== 'approved' && newValue.type === 'cancel') {
+        const orderId = newValue.orderId;
+        console.log(`Cancellation approved for Request ${event.params.requestId}. Checking shipment status for Order ${orderId}...`);
+
+        try {
+            // Fetch order details to get tracking/AWB info
+            const orderDoc = await admin.firestore().collection('orders').doc(orderId).get();
+            if (!orderDoc.exists) {
+                console.error(`Order ${orderId} not found.`);
+                return;
+            }
+
+            const orderData = orderDoc.data();
+            // In our system, trackingId holds the AWB or tracking number.
+            // Shiprocket usually uses AWB for cancellation via API.
+            // Check if we have tracking info and if the order is not already delivered.
+            const awb = orderData.delivery?.trackingId;
+            const shipmentId = orderData.delivery?.shipmentId;
+            const currentStatus = orderData.delivery?.status || orderData.status;
+
+            const isShipped = ['shipped', 'out_for_delivery', 'packed'].includes(currentStatus);
+            const isDelivered = ['delivered', 'returned', 'cancelled'].includes(currentStatus); // If already cancelled/returned, maybe no need
+
+            if (awb && isShipped && !isDelivered) {
+                console.log(`Attempting to cancel Shiprocket shipment (AWB: ${awb}) for Order ${orderId}`);
+                
+                const cancelResult = await cancelShiprocketOrder(awb);
+                console.log('Shiprocket Cancellation Result:', cancelResult);
+                
+                // Update order history
+                 await orderDoc.ref.update({
+                    'delivery.history': admin.firestore.FieldValue.arrayUnion({
+                        status: 'cancelled_via_admin',
+                        message: `Shipment cancelled automatically after request approval.`,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } else {
+                console.log(`Skipping Shiprocket cancellation. AWB: ${awb}, Status: ${currentStatus}`);
+            }
+
+        } catch (error) {
+            console.error(`Failed to cancel Shiprocket shipment for Order ${orderId}:`, error);
+            // Optional: Write to a logging collection or alert admin
+        }
+    }
+});

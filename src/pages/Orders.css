@@ -1,98 +1,1595 @@
+/* Orders Page - Modern Design */
 .orders-page {
-    padding: var(--spacing-3xl) 0;
+    padding: 60px 0;
     min-height: calc(100vh - 200px);
+    background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%);
 }
 
-.orders-page h1 {
-    font-family: var(--font-display);
+.orders-header {
+    margin-bottom: 40px;
+}
+
+.orders-header h1 {
+    font-family: 'Playfair Display', serif;
     font-size: 2.5rem;
-    margin-bottom: var(--spacing-2xl);
+    margin-bottom: 8px;
+    color: #111;
 }
 
+.orders-subtitle {
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+/* Orders List */
 .orders-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xl);
-    max-width: 900px;
+    gap: 24px;
+    max-width: 1000px;
 }
 
+/* Order Card */
 .order-card {
-    background: var(--color-white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.order-header {
+.order-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Order Card Header */
+.order-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-lg);
-    background: var(--color-light);
-    border-bottom: 1px solid var(--color-gray-200);
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.order-header h3 {
+.order-info h3 {
     font-size: 1.25rem;
-    margin-bottom: var(--spacing-xs);
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 6px;
 }
 
 .order-date {
-    color: var(--color-gray-600);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6b7280;
+    font-size: 0.9rem;
     margin: 0;
 }
 
-.order-status {
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-full);
+.order-date svg {
+    opacity: 0.6;
+}
+
+.order-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
     font-size: 0.875rem;
     font-weight: 600;
     text-transform: capitalize;
 }
 
-.status-delivered {
-    background: var(--color-success);
-    color: var(--color-white);
+.status-icon {
+    font-size: 1.1rem;
 }
 
-.status-shipped {
-    background: var(--color-info);
-    color: var(--color-white);
+/* Order Items Preview */
+.order-items-preview {
+    padding: 20px 24px;
 }
 
-.status-processing {
-    background: var(--color-warning);
-    color: var(--color-white);
-}
-
-.order-items {
-    padding: var(--spacing-lg);
-}
-
-.order-item {
+.order-item-preview {
     display: flex;
-    justify-content: space-between;
-    padding: var(--spacing-sm) 0;
-    color: var(--color-gray-700);
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px dashed #e5e7eb;
 }
 
-.order-footer {
+.order-item-preview:last-of-type {
+    border-bottom: none;
+}
+
+.order-item-preview img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.order-item-preview .item-details {
+    flex: 1;
+}
+
+.order-item-preview h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 4px;
+}
+
+.order-item-preview p {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.order-item-preview .item-price {
+    font-weight: 600;
+    color: #111;
+}
+
+.more-items {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+/* Order Card Footer */
+.order-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-lg);
-    background: var(--color-light);
-    border-top: 1px solid var(--color-gray-200);
+    padding: 20px 24px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
 }
 
-.order-total {
-    font-size: 1.25rem;
+.order-total-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.total-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.total-amount {
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-accent);
+    color: #ff3f6c;
 }
 
+.order-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    /* Allow wrapping on smaller screens */
+    justify-content: flex-end;
+    /* Align to right */
+}
+
+.btn-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-invoice {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-invoice:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+}
+
+.btn-cancel {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+}
+
+.btn-refund {
+    background: #10b981;
+    color: white;
+}
+
+.btn-refund:hover {
+    background: #059669;
+    transform: translateY(-2px);
+}
+
+/* No Orders State */
 .no-orders {
     text-align: center;
-    padding: var(--spacing-3xl);
-    color: var(--color-gray-600);
+    padding: 80px 20px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.no-orders-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.no-orders h3 {
+    font-size: 1.5rem;
+    color: #111;
+    margin-bottom: 8px;
+}
+
+.no-orders p {
+    color: #6b7280;
+    margin-bottom: 24px;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+/* Invoice Modal */
+.invoice-modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 32px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.invoice-header h2 {
+    font-size: 1.75rem;
+    color: #111;
+}
+
+.invoice-content {
+    padding: 32px;
+}
+
+.invoice-company {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.invoice-company h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    color: #ff3f6c;
+    margin-bottom: 8px;
+}
+
+.invoice-company p {
+    color: #6b7280;
+    margin: 4px 0;
+}
+
+.invoice-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.invoice-details-grid h4 {
+    font-size: 1rem;
+    color: #111;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.invoice-details-grid p {
+    margin: 6px 0;
+    color: #374151;
+}
+
+.invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 32px;
+}
+
+.invoice-table th {
+    background: #f9fafb;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #111;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.invoice-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;
+}
+
+.invoice-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.invoice-table tfoot td {
+    font-weight: 600;
+    padding: 16px 12px;
+}
+
+.invoice-table .total-row {
+    background: #f9fafb;
+}
+
+.invoice-table .total-row td {
+    font-size: 1.1rem;
+    color: #ff3f6c;
+    border-top: 2px solid #e5e7eb;
+}
+
+.invoice-footer {
+    text-align: center;
+    padding-top: 24px;
+    border-top: 2px solid #e5e7eb;
+}
+
+.invoice-footer p {
+    margin: 8px 0;
+    color: #6b7280;
+}
+
+.invoice-note {
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 12px;
+    padding: 24px 32px;
+    border-top: 2px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.invoice-actions .btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Action Modal (Cancel/Refund) */
+.action-modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    font-size: 1.5rem;
+    color: #111;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: #111;
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.refund-info {
+    text-align: center;
+    padding: 24px;
+    background: #fffbeb;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.refund-info svg {
+    margin-bottom: 12px;
+}
+
+.refund-info h4 {
+    font-size: 1.25rem;
+    color: #111;
+    margin-bottom: 8px;
+}
+
+.refund-info p {
+    color: #6b7280;
+    margin: 8px 0;
+}
+
+.refund-breakdown {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 0.95rem;
+    color: #374151;
+}
+
+.breakdown-row:last-child {
+    border-bottom: none;
+}
+
+.breakdown-row.charge {
+    color: #ef4444;
+    font-weight: 500;
+}
+
+.breakdown-row.charge span:last-child {
+    color: #ef4444;
+}
+
+.breakdown-row.total {
+    padding-top: 16px;
+    margin-top: 8px;
+    border-top: 2px solid #e5e7eb;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #111;
+}
+
+.breakdown-row.total span:last-child {
+    color: #10b981;
+    font-size: 1.25rem;
+}
+
+.refund-amount {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 20px 0;
+}
+
+.refund-percentage {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #f59e0b;
+}
+
+.refund-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #10b981;
+}
+
+.refund-note {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.return-type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.return-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.return-type-btn:hover {
+    border-color: #ff3f6c;
+    background: #fff5f7;
+}
+
+.return-type-btn.active {
+    border-color: #ff3f6c;
+    background: #fff5f7;
+}
+
+.return-type-btn svg {
+    color: #ff3f6c;
+}
+
+.return-type-btn span {
+    font-weight: 600;
+    color: #111;
+}
+
+.return-type-btn p {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.return-info {
+    background: #f0fdf4;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.return-info p {
+    margin: 8px 0;
+    color: #059669;
+    font-size: 0.9rem;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 8px;
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+
+.form-group textarea:focus {
+    outline: none;
+    border-color: #ff3f6c;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    padding: 24px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    flex-shrink: 0;
+}
+
+.modal-actions .btn {
+    flex: 1;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Refund Status Info */
+.refund-status-info {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+}
+
+.refund-status-info h4 {
+    font-size: 1rem;
+    color: #111;
+    margin-bottom: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.refund-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.refund-status-badge.processed {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+}
+
+.refund-status-badge.pending {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+}
+
+.refund-status-badge.manual_processing {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #3b82f6;
+}
+
+.refund-status-badge.failed {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #ef4444;
+}
+
+.refund-details {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.refund-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.refund-row:last-of-type {
+    border-bottom: none;
+}
+
+.refund-row span:first-child {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.refund-row span:last-child {
+    font-weight: 600;
+    color: #111;
+}
+
+.refund-amount {
+    color: #10b981 !important;
+    font-size: 1.1rem !important;
+}
+
+.refund-id {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem !important;
+    background: #f3f4f6;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.refund-note {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.refund-note.success {
+    background: #d1fae5;
+    color: #065f46;
+    border-left: 4px solid #10b981;
+}
+
+.refund-note.warning {
+    background: #fef3c7;
+    color: #92400e;
+    border-left: 4px solid #f59e0b;
+}
+
+.refund-note.info {
+    background: #dbeafe;
+    color: #1e40af;
+    border-left: 4px solid #3b82f6;
+}
+
+.refund-note.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left: 4px solid #ef4444;
+}
+
+/* Customer Notification Banner */
+.customer-notification-banner {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+    border: 2px solid #3b82f6;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Delivery Timeline */
+.delivery-timeline {
+    padding: 24px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    margin: 10px 0;
+}
+
+.timeline-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+    flex: 1;
+}
+
+.step-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #cbd5e1;
+    transition: all 0.3s ease;
+}
+
+.timeline-step.completed .step-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981;
+}
+
+.timeline-step span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.timeline-step.completed span {
+    color: #10b981;
+}
+
+.timeline-line {
+    flex: 1;
+    height: 3px;
+    background: #cbd5e1;
+    margin-top: -22px;
+    position: relative;
+    z-index: 0;
+}
+
+.timeline-line.completed {
+    background: #10b981;
+}
+
+/* Tracking Info Compact */
+.tracking-info-compact {
+    padding: 16px 24px;
+    background: #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tracking-info-compact p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.btn-track-order {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #111;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-track-order:hover {
+    background: #333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 640px) {
+    .timeline-steps {
+        max-width: 100%;
+    }
+
+    .timeline-step span {
+        font-size: 0.65rem;
+    }
+
+    .tracking-info-compact {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .btn-track-order {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+.notification-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-content h4 {
+    font-size: 0.95rem;
+    color: #1e40af;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.notification-content p {
+    font-size: 0.9rem;
+    color: #1e3a8a;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.notification-dismiss {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.notification-dismiss:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #111;
+}
+
+/* Print Styles */
+@media print {
+
+    .orders-page,
+    .modal-overlay {
+        background: white;
+    }
+
+    .invoice-header,
+    .invoice-actions,
+    .modal-close {
+        display: none;
+    }
+
+    .invoice-modal {
+        box-shadow: none;
+        max-width: 100%;
+    }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .orders-list {
+        max-width: 100%;
+    }
+
+    .invoice-modal,
+    .action-modal {
+        max-width: 90%;
+    }
+}
+
+@media (max-width: 768px) {
+    .orders-page {
+        padding: 40px 0;
+    }
+
+    .orders-header h1 {
+        font-size: 2rem;
+    }
+
+    .orders-subtitle {
+        font-size: 1rem;
+    }
+
+    .order-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .order-info h3 {
+        font-size: 1.1rem;
+    }
+
+    .order-status-badge {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+
+    .order-items-preview {
+        padding: 16px;
+    }
+
+    .order-item-preview {
+        gap: 12px;
+    }
+
+    .order-item-preview img {
+        width: 50px;
+        height: 50px;
+    }
+
+    .order-item-preview h4 {
+        font-size: 0.9rem;
+    }
+
+    .order-item-preview p {
+        font-size: 0.8rem;
+    }
+
+    .order-card-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .total-amount {
+        font-size: 1.3rem;
+    }
+
+    .order-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        flex: 1;
+        min-width: 110px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .btn-action svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Modal Responsive */
+    .invoice-modal,
+    .action-modal {
+        max-width: 90%;
+        max-height: 90vh;
+        margin: 20px;
+    }
+
+    .modal-header {
+        padding: 16px 20px;
+    }
+
+    .modal-header h3 {
+        font-size: 1.25rem;
+    }
+
+    .invoice-content,
+    .modal-body {
+        padding: 16px 20px;
+        max-height: calc(90vh - 180px);
+        overflow-y: auto;
+    }
+
+    .refund-info {
+        padding: 16px;
+    }
+
+    .refund-info svg {
+        width: 40px;
+        height: 40px;
+    }
+
+    .refund-info h4 {
+        font-size: 1.1rem;
+    }
+
+    .refund-info p {
+        font-size: 0.9rem;
+    }
+
+    .invoice-company h1 {
+        font-size: 2rem;
+    }
+
+    .invoice-details-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .invoice-table {
+        font-size: 0.85rem;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+        padding: 8px 6px;
+    }
+
+    .invoice-actions {
+        flex-direction: column;
+        padding: 16px 20px;
+    }
+
+    /* Refund Breakdown Responsive */
+    .refund-breakdown {
+        padding: 12px;
+        margin: 16px 0;
+    }
+
+    .breakdown-row {
+        padding: 10px 0;
+        font-size: 0.85rem;
+        flex-wrap: wrap;
+    }
+
+    .breakdown-row span {
+        max-width: 100%;
+    }
+
+    .breakdown-row.total {
+        font-size: 0.95rem;
+    }
+
+    .breakdown-row.total span:last-child {
+        font-size: 1.1rem;
+    }
+
+    .form-group label {
+        font-size: 0.9rem;
+    }
+
+    .form-group textarea {
+        font-size: 0.9rem;
+        padding: 10px;
+        min-height: 80px;
+    }
+
+    .return-type-selector {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .return-type-btn {
+        padding: 16px;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+        padding: 16px 20px;
+        gap: 10px;
+    }
+
+    .modal-actions .btn {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .orders-page {
+        padding: 30px 0;
+    }
+
+    .orders-header {
+        padding: 0 16px;
+    }
+
+    .orders-header h1 {
+        font-size: 1.75rem;
+    }
+
+    .orders-subtitle {
+        font-size: 0.9rem;
+    }
+
+    .orders-list {
+        padding: 0 12px;
+        gap: 16px;
+    }
+
+    .order-card {
+        border-radius: 12px;
+    }
+
+    .order-card-header {
+        padding: 12px;
+    }
+
+    .order-info h3 {
+        font-size: 1rem;
+    }
+
+    .order-date {
+        font-size: 0.8rem;
+    }
+
+    .order-status-badge {
+        font-size: 0.75rem;
+        padding: 5px 10px;
+    }
+
+    .status-icon {
+        font-size: 1rem;
+    }
+
+    .order-items-preview {
+        padding: 12px;
+    }
+
+    .order-item-preview {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .order-item-preview img {
+        width: 45px;
+        height: 45px;
+    }
+
+    .order-item-preview h4 {
+        font-size: 0.85rem;
+    }
+
+    .order-item-preview p {
+        font-size: 0.75rem;
+    }
+
+    .order-item-preview .item-price {
+        font-size: 0.9rem;
+    }
+
+    .more-items {
+        font-size: 0.85rem;
+    }
+
+    .order-card-footer {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .total-label {
+        font-size: 0.8rem;
+    }
+
+    .total-amount {
+        font-size: 1.2rem;
+    }
+
+    .order-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .btn-action {
+        width: 100%;
+        min-width: auto;
+        padding: 10px;
+        font-size: 0.85rem;
+        justify-content: center;
+    }
+
+    /* Modal Responsive */
+    .modal-overlay {
+        padding: 10px;
+    }
+
+    .invoice-modal,
+    .action-modal {
+        max-width: 100%;
+        max-height: 95vh;
+        border-radius: 12px;
+    }
+
+    .modal-header,
+    .invoice-header {
+        padding: 16px;
+    }
+
+    .modal-header h3,
+    .invoice-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .modal-close {
+        width: 28px;
+        height: 28px;
+        font-size: 1.5rem;
+    }
+
+    .invoice-content,
+    .modal-body {
+        padding: 16px;
+    }
+
+    .invoice-company h1 {
+        font-size: 1.75rem;
+    }
+
+    .invoice-company p {
+        font-size: 0.85rem;
+    }
+
+    .invoice-details-grid h4 {
+        font-size: 0.9rem;
+    }
+
+    .invoice-details-grid p {
+        font-size: 0.85rem;
+    }
+
+    .invoice-table {
+        font-size: 0.8rem;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+        padding: 6px 4px;
+    }
+
+    .invoice-table small {
+        font-size: 0.7rem;
+    }
+
+    .invoice-footer p {
+        font-size: 0.85rem;
+    }
+
+    .invoice-note {
+        font-size: 0.75rem;
+    }
+
+    .invoice-actions {
+        padding: 12px 16px;
+        gap: 8px;
+    }
+
+    .invoice-actions .btn {
+        font-size: 0.85rem;
+        padding: 10px;
+    }
+
+    /* Refund Info Responsive */
+    .refund-info {
+        padding: 16px;
+    }
+
+    .refund-info svg {
+        width: 40px;
+        height: 40px;
+    }
+
+    .refund-info h4 {
+        font-size: 1.1rem;
+    }
+
+    .refund-info p {
+        font-size: 0.85rem;
+    }
+
+    .refund-breakdown {
+        padding: 10px;
+        margin: 16px 0;
+    }
+
+    .breakdown-row {
+        padding: 8px 0;
+        font-size: 0.85rem;
+    }
+
+    .breakdown-row.total {
+        padding-top: 12px;
+        font-size: 0.95rem;
+    }
+
+    .breakdown-row.total span:last-child {
+        font-size: 1.1rem;
+    }
+
+    .refund-note {
+        font-size: 0.8rem;
+    }
+
+    .return-type-btn {
+        padding: 14px;
+    }
+
+    .return-type-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .return-type-btn span {
+        font-size: 0.9rem;
+    }
+
+    .return-type-btn p {
+        font-size: 0.75rem;
+    }
+
+    .return-info {
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+
+    .return-info p {
+        font-size: 0.85rem;
+    }
+
+    .form-group label {
+        font-size: 0.9rem;
+    }
+
+    .form-group textarea {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+
+    .modal-actions {
+        padding: 12px 16px;
+    }
+
+    .modal-actions .btn {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+
+    /* Refund Status Responsive */
+    .refund-status-info {
+        padding: 14px;
+        margin: 12px 0;
+    }
+
+    .refund-status-info h4 {
+        font-size: 0.9rem;
+    }
+
+    .refund-status-badge {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+    }
+
+    .refund-details {
+        padding: 12px;
+    }
+
+    .refund-row {
+        padding: 8px 0;
+        font-size: 0.85rem;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .refund-amount {
+        font-size: 1rem !important;
+    }
+
+    .refund-id {
+        font-size: 0.75rem !important;
+        word-break: break-all;
+    }
+
+    .refund-note {
+        font-size: 0.8rem;
+        padding: 10px;
+    }
+
+    /* Notification Banner Responsive */
+    .customer-notification-banner {
+        padding: 12px;
+        margin: 12px 0;
+        gap: 10px;
+    }
+
+    .notification-icon {
+        font-size: 1.5rem;
+    }
+
+    .notification-content h4 {
+        font-size: 0.85rem;
+    }
+
+    .notification-content p {
+        font-size: 0.85rem;
+    }
+
+    .notification-dismiss {
+        width: 24px;
+        height: 24px;
+        font-size: 1.25rem;
+    }
+
+    /* No Orders State */
+    .no-orders {
+        padding: 60px 16px;
+    }
+
+    .no-orders-icon {
+        font-size: 3rem;
+    }
+
+    .no-orders h3 {
+        font-size: 1.25rem;
+    }
+
+    .no-orders p {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .orders-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .order-info h3 {
+        font-size: 0.95rem;
+    }
+
+    .total-amount {
+        font-size: 1.1rem;
+    }
+
+    .btn-action {
+        font-size: 0.8rem;
+        padding: 8px;
+    }
+
+    .modal-header h3,
+    .invoice-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .breakdown-row {
+        font-size: 0.8rem;
+    }
+
+    .breakdown-row.total {
+        font-size: 0.9rem;
+    }
+
+    .breakdown-row.total span:last-child {
+        font-size: 1rem;
+    }
 }

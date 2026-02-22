@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getProducts } from '../firebase/firebaseService';
+import { searchProducts } from '../utils/searchUtils';
+import InlineLoader from '../components/InlineLoader';
 import './Products.css';
 
 const Products = () => {
+    const [searchParams] = useSearchParams();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -15,10 +18,20 @@ const Products = () => {
     const [selectedSizes, setSelectedSizes] = useState([]);
     const [sortBy, setSortBy] = useState('default');
     const [inStockOnly, setInStockOnly] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false); // Mobile filter drawer
+
 
     useEffect(() => {
         loadProducts();
     }, []);
+
+    // Handle URL search parameter
+    useEffect(() => {
+        const searchParam = searchParams.get('search');
+        if (searchParam) {
+            setSearchQuery(searchParam);
+        }
+    }, [searchParams]);
 
     const loadProducts = async () => {
         const result = await getProducts();
@@ -82,21 +95,18 @@ const Products = () => {
         }
     }, [minPrice, maxPrice, products.length]);
 
-    // Filter products
+    // Filter products with advanced search
     const filteredProducts = useMemo(() => {
         let filtered = products;
 
-        if (categoryFilter !== 'all') {
-            filtered = filtered.filter(p => p.category === categoryFilter);
+        // Apply advanced context-based search
+        if (searchQuery) {
+            filtered = searchProducts(filtered, searchQuery);
         }
 
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            filtered = filtered.filter(p =>
-                p.name?.toLowerCase().includes(q) ||
-                p.description?.toLowerCase().includes(q) ||
-                p.category?.toLowerCase().includes(q)
-            );
+        // Apply category filter
+        if (categoryFilter !== 'all') {
+            filtered = filtered.filter(p => p.category === categoryFilter);
         }
 
         filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
@@ -154,7 +164,7 @@ const Products = () => {
         return colors[name.toLowerCase()] || '#ccc';
     };
 
-    if (loading) return <div className="loading">Loading products...</div>;
+    if (loading) return <InlineLoader message="Loading..." />;
 
     return (
         <div className="products-page">
@@ -166,7 +176,21 @@ const Products = () => {
 
                 <div className="products-layout">
                     {/* Sidebar Filters */}
-                    <aside className="products-sidebar">
+                    <aside className={`products-sidebar ${filterOpen ? 'filter-open' : ''}`}>
+                        {/* Sidebar Header */}
+                        <div className="sidebar-header">
+                            <h2>FILTERS</h2>
+                            <button className="filter-close-btn" onClick={() => setFilterOpen(false)} aria-label="Close Filters">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                            <button className="clear-all-btn" onClick={resetFilters}>
+                                CLEAR ALL
+                            </button>
+                        </div>
+
                         <div className="filter-section">
                             <h3>Search</h3>
                             <input
@@ -181,20 +205,18 @@ const Products = () => {
                         <div className="filter-section">
                             <h3>Categories</h3>
                             <div className="filter-options">
-                                <button
-                                    className={categoryFilter === 'all' ? 'active' : ''}
-                                    onClick={() => setCategoryFilter('all')}
-                                >
-                                    ALL PRODUCTS
-                                </button>
                                 {availableCategories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        className={categoryFilter === cat ? 'active' : ''}
-                                        onClick={() => setCategoryFilter(cat)}
-                                    >
-                                        {cat.toUpperCase()}
-                                    </button>
+                                    <div key={cat} className="filter-option-item">
+                                        <input
+                                            type="checkbox"
+                                            id={`cat-${cat}`}
+                                            checked={categoryFilter === cat}
+                                            onChange={() => setCategoryFilter(categoryFilter === cat ? 'all' : cat)}
+                                        />
+                                        <label htmlFor={`cat-${cat}`}>
+                                            {cat}
+                                        </label>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -222,15 +244,17 @@ const Products = () => {
                                 <h3>Colors</h3>
                                 <div className="color-options">
                                     {availableColors.map(color => (
-                                        <button
-                                            key={color}
-                                            className={`color-btn ${selectedColors.includes(color) ? 'active' : ''}`}
-                                            onClick={() => toggleColor(color)}
-                                            style={{ backgroundColor: getColorHex(color) }}
-                                            title={color}
-                                        >
-                                            {selectedColors.includes(color) && <span>✓</span>}
-                                        </button>
+                                        <div key={color} className="filter-option-item">
+                                            <input
+                                                type="checkbox"
+                                                id={`color-${color}`}
+                                                checked={selectedColors.includes(color)}
+                                                onChange={() => toggleColor(color)}
+                                            />
+                                            <label htmlFor={`color-${color}`}>
+                                                {color}
+                                            </label>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -269,10 +293,30 @@ const Products = () => {
                         </button>
                     </aside>
 
+                    {/* Backdrop for mobile */}
+                    {filterOpen && <div className="filter-backdrop" onClick={() => setFilterOpen(false)}></div>}
+
+
                     {/* Main Products */}
                     <main className="products-main">
                         <div className="products-controls">
-                            <span className="results-count">{filteredProducts.length} Products</span>
+                            <div className="controls-left">
+                                <button className="filter-toggle-btn" onClick={() => setFilterOpen(true)}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                                    </svg>
+                                    FILTERS
+                                </button>
+                                <span className="results-count">{filteredProducts.length} Products</span>
+                            </div>
                             <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="sort-select">
                                 <option value="default">Featured</option>
                                 <option value="price-low">Price: Low to High</option>

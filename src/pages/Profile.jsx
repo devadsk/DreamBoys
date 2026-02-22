@@ -84,6 +84,7 @@ const Profile = () => {
                 )}
 
                 <div className="profile-grid">
+                    {/* Left Column: User Info Card */}
                     <div className="profile-card">
                         <div className="profile-avatar-large">
                             {userData?.photoURL ? (
@@ -94,12 +95,15 @@ const Profile = () => {
                         </div>
                         <h2>{userData?.displayName || 'User'}</h2>
                         <p>{currentUser?.email}</p>
-                        <p className="profile-role">Role: {userData?.role || 'Customer'}</p>
+                        {userData?.role === 'admin' && (
+                            <p className="profile-role">Role: {userData.role}</p>
+                        )}
                         <p className="profile-member-since">
                             Member since {new Date(userData?.createdAt || Date.now()).toLocaleDateString()}
                         </p>
                     </div>
 
+                    {/* Right Column: Content */}
                     <div className="profile-details">
                         <div className="profile-details-header">
                             <h2>Account Information</h2>

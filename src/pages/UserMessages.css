@@ -1,0 +1,232 @@
+.user-messages-page {
+    padding: var(--spacing-4xl) 0;
+    min-height: calc(100vh - 400px);
+}
+
+.messages-header {
+    margin-bottom: var(--spacing-3xl);
+    text-align: center;
+}
+
+.messages-header h1 {
+    font-size: 3rem;
+    font-family: var(--font-display);
+    color: var(--color-text);
+    /* Changed to black/text */
+    margin-bottom: var(--spacing-sm);
+}
+
+.messages-header p {
+    color: var(--color-gray-600);
+    font-size: 1.125rem;
+}
+
+.messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.user-message-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-2xl);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-message-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+}
+
+.msg-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-gray-100);
+    padding-bottom: var(--spacing-md);
+}
+
+.msg-date {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+    font-weight: 500;
+}
+
+.msg-status {
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.msg-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.msg-status.replied {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.msg-body h4 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-gray-900);
+}
+
+.original-msg {
+    color: var(--color-gray-600);
+    line-height: 1.6;
+    font-style: italic;
+    background: var(--color-gray-50);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-md);
+}
+
+.admin-reply-box {
+    margin-top: var(--spacing-xl);
+    padding: var(--spacing-xl);
+    background: #f8fafc;
+    border-left: 4px solid var(--color-primary);
+    border-radius: var(--radius-md);
+}
+
+.reply-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.reply-header h5 {
+    margin: 0;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.reply-date {
+    font-size: 0.75rem;
+    color: var(--color-gray-400);
+}
+
+.admin-reply-box p {
+    margin: 0;
+    color: var(--color-gray-800);
+    line-height: 1.6;
+}
+
+/* Loading & Empty States */
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-4xl);
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+    color: var(--color-gray-500);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-gray-200);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--spacing-lg);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .user-messages-page {
+        padding: var(--spacing-2xl) 0;
+    }
+
+    .container {
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
+    }
+
+    .messages-header h1 {
+        font-size: 2rem;
+    }
+
+    .messages-header p {
+        font-size: 1rem;
+    }
+
+    .user-message-card {
+        padding: var(--spacing-lg);
+    }
+
+    .msg-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+
+    .admin-reply-box {
+        padding: var(--spacing-lg);
+        margin-top: var(--spacing-lg);
+    }
+
+    .reply-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
+@media (max-width: 480px) {
+    .messages-header h1 {
+        font-size: 1.75rem;
+    }
+
+    .user-message-card {
+        padding: var(--spacing-md);
+    }
+
+    .msg-body h4 {
+        font-size: 1.1rem;
+    }
+
+    .original-msg {
+        font-size: 0.9rem;
+    }
+
+    .loading-state,
+    .empty-state {
+        padding: var(--spacing-2xl) var(--spacing-lg);
+    }
+}

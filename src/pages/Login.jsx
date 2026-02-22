@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { loginWithEmail, loginWithGoogle } from '../firebase/firebaseService';
 import './Auth.css';
 
@@ -11,6 +11,10 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Get the intended destination from location state
+    const from = location.state?.from || '/';
 
     const handleChange = (e) => {
         setFormData({
@@ -28,7 +32,7 @@ const Login = () => {
         const result = await loginWithEmail(formData.email, formData.password);
 
         if (result.success) {
-            navigate('/');
+            navigate(from, { replace: true });
         } else {
             setError(result.error);
         }
@@ -43,7 +47,7 @@ const Login = () => {
         const result = await loginWithGoogle();
 
         if (result.success) {
-            navigate('/');
+            navigate(from, { replace: true });
         } else {
             setError(result.error);
         }

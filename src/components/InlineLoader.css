@@ -1,0 +1,146 @@
+.inline-loader-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 60px 20px;
+    width: 100%;
+}
+
+.inline-loader-content {
+    text-align: center;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.inline-loader-logo {
+    margin-bottom: 20px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.inline-logo-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+    animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+
+    0%,
+    100% {
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+    }
+}
+
+.inline-loader-spinner {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 20px;
+}
+
+.inline-spinner-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.inline-spinner-ring:nth-child(1) {
+    border-top-color: #667eea;
+    animation-delay: -0.45s;
+}
+
+.inline-spinner-ring:nth-child(2) {
+    border-top-color: #764ba2;
+    animation-delay: -0.3s;
+}
+
+.inline-spinner-ring:nth-child(3) {
+    border-top-color: #f093fb;
+    animation-delay: -0.15s;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.inline-loader-text {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin: 0;
+    animation: fadeInOut 2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+
+    0%,
+    100% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .inline-loader-container {
+        min-height: 300px;
+        padding: 40px 20px;
+    }
+
+    .inline-logo-image {
+        width: 80px;
+        height: 80px;
+    }
+
+    .inline-loader-spinner {
+        width: 40px;
+        height: 40px;
+    }
+
+    .inline-loader-text {
+        font-size: 0.875rem;
+    }
+}

@@ -7,6 +7,8 @@
     font-family: var(--font-display);
     font-size: 2.5rem;
     margin-bottom: var(--spacing-2xl);
+    color: var(--color-text);
+    /* Changed to black/text color as requested */
 }
 
 .profile-grid {
@@ -99,16 +101,13 @@
     font-weight: 600;
 }
 
-@media (max-width: 768px) {
-    .profile-grid {
-        grid-template-columns: 1fr;
-    }
-}
 .profile-details-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .profile-details-header h2 {
@@ -157,4 +156,91 @@
     font-size: 0.875rem;
     color: var(--color-gray-500);
     margin-top: var(--spacing-md);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 991px) {
+    .profile-grid {
+        grid-template-columns: 280px 1fr;
+        gap: var(--spacing-xl);
+    }
+}
+
+@media (max-width: 768px) {
+    .profile-page {
+        padding: var(--spacing-xl) 0;
+    }
+
+    .profile-page h1 {
+        font-size: 2rem;
+        margin-bottom: var(--spacing-xl);
+        text-align: center;
+    }
+
+    .profile-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+
+    .profile-card {
+        padding: var(--spacing-xl);
+    }
+
+    .profile-details {
+        padding: var(--spacing-xl);
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-page {
+        padding: var(--spacing-lg) 0;
+    }
+
+    .profile-page h1 {
+        font-size: 1.75rem;
+    }
+
+    .profile-card {
+        padding: var(--spacing-lg);
+    }
+
+    .profile-avatar-large {
+        width: 100px;
+        height: 100px;
+        font-size: 2rem;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .profile-card h2 {
+        font-size: 1.5rem;
+    }
+
+    .profile-details {
+        padding: var(--spacing-lg);
+    }
+
+    .profile-details-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .profile-details h2 {
+        font-size: 1.25rem;
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .detail-row {
+        flex-direction: column;
+        gap: 4px;
+        padding: var(--spacing-md) 0;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
 }

@@ -1,20 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getProduct, getProducts, getProductReviews, addReview } from '../firebase/firebaseService';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getProduct, getProducts, getProductReviews, addReview, deleteReview } from '../firebase/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
+import { useToast } from '../context/ToastContext';
+import InlineLoader from '../components/InlineLoader';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
     const { id } = useParams();
-    const { currentUser } = useAuth();
+    const navigate = useNavigate();
+    const { currentUser, userData } = useAuth();
+    const { addToCart, getCartQuantity } = useCart();
+    const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
+    const toast = useToast();
+
     const [product, setProduct] = useState(null);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [reviews, setReviews] = useState([]);
+
+    // State for selections
     const [quantity, setQuantity] = useState(1);
     const [selectedSize, setSelectedSize] = useState('');
     const [selectedColor, setSelectedColor] = useState('');
-    const [activeTab, setActiveTab] = useState('description');
     const [selectedImage, setSelectedImage] = useState(0);
+
+    // UI States
+    const [showQuantity, setShowQuantity] = useState(false);
+    const [activeAccordion, setActiveAccordion] = useState('description'); // 'description', 'shipping', or null
 
     // Review form states
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -25,29 +39,48 @@ const ProductDetail = () => {
     useEffect(() => {
         loadProduct();
         window.scrollTo(0, 0);
+        setShowQuantity(false);
     }, [id]);
 
-    // Auto-adjust quantity when size or color changes to prevent exceeding available stock
-    useEffect(() => {
-        if (!product) return;
+    // Swipe handling for mobile
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
 
-        let maxStock = product.stock || 99;
+    const minSwipeDistance = 50;
 
-        // Check size stock
-        if (selectedSize && product.sizeStock && product.sizeStock[selectedSize] !== undefined) {
-            maxStock = Math.min(maxStock, product.sizeStock[selectedSize]);
+    const onTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            // Swipe left - go to next image or loop to first
+            if (selectedImage < productImages.length - 1) {
+                setSelectedImage(selectedImage + 1);
+            } else {
+                setSelectedImage(0); // Loop back to first image
+            }
         }
-
-        // Check color stock
-        if (selectedColor && product.colorStock && product.colorStock[selectedColor] !== undefined) {
-            maxStock = Math.min(maxStock, product.colorStock[selectedColor]);
+        if (isRightSwipe) {
+            // Swipe right - go to previous image or loop to last
+            if (selectedImage > 0) {
+                setSelectedImage(selectedImage - 1);
+            } else {
+                setSelectedImage(productImages.length - 1); // Loop to last image
+            }
         }
-
-        // If current quantity exceeds available stock, reduce it
-        if (quantity > maxStock) {
-            setQuantity(Math.max(1, Math.min(quantity, maxStock)));
-        }
-    }, [selectedSize, selectedColor, product]);
+    };
 
     const loadProduct = async () => {
         const result = await getProduct(id);
@@ -55,38 +88,113 @@ const ProductDetail = () => {
             const productData = result.data;
             setProduct(productData);
 
-            // Set default selections
-            if (productData.sizes && productData.sizes.length > 0) {
+            // Set initial color and size
+            if (productData.colors?.length > 0) {
+                const firstColor = productData.colors[0];
+                setSelectedColor(firstColor);
+
+                // Set size available for this color
+                const availableSizes = getAvailableSizes(productData, firstColor);
+                if (availableSizes.length > 0) setSelectedSize(availableSizes[0]);
+            } else if (productData.sizes?.length > 0) {
+                // Products without color variants
                 setSelectedSize(productData.sizes[0]);
             }
-            if (productData.colors && productData.colors.length > 0) {
-                setSelectedColor(productData.colors[0]);
-            }
 
-            // Load related products and reviews
             loadRelatedProducts(productData.category);
             loadReviews(id);
         }
     };
 
+    const getAvailableSizes = (prod, color) => {
+        if (!prod || !prod.colorSizeStock) return prod?.sizes || ['S', 'M', 'L', 'XL'];
+
+        // If color specified, check stock for that color
+        if (color && prod.colorSizeStock[color]) {
+            return Object.keys(prod.colorSizeStock[color]).filter(size => prod.colorSizeStock[color][size] > 0);
+        }
+
+        // Fallback for simple stock (key 'default')
+        if (prod.colorSizeStock['default']) {
+            return Object.keys(prod.colorSizeStock['default']).filter(size => prod.colorSizeStock['default'][size] > 0);
+        }
+
+        return prod.sizes || []; // Fallback
+    };
+
+    // Helper function for color hex codes (from Wishlist.jsx)
+    const getColorHex = (name) => {
+        const colors = {
+            black: '#000', white: '#fff', red: '#dc2626', blue: '#2563eb',
+            green: '#16a34a', yellow: '#eab308', purple: '#9333ea', pink: '#db2777',
+            gray: '#6b7280', navy: '#1e3a8a', orange: '#ea580c', brown: '#78350f',
+            beige: '#D4C5B9', khaki: '#C3B091'
+        };
+        return colors[name.toLowerCase()] || '#ccc';
+    };
+
     const loadRelatedProducts = async (category) => {
         const result = await getProducts();
         if (result.success) {
-            const related = result.data
-                .filter(p => p.category === category && p.id !== id)
-                .slice(0, 4);
-            setRelatedProducts(related);
+            let allProducts = result.data.filter(p => p.id !== id);
+
+            // Algorithm to score products
+            // 1. Category relevance (Must match or be highly relevant)
+            // 2. Price proximity (Similar budget)
+            // 3. Rating (Social proof)
+            // 4. Name similarity (Content based)
+            // 5. Random factor (Variety)
+
+            const currentPrice = product?.price || 0;
+            const currentNameWords = product?.name?.toLowerCase().split(' ') || [];
+
+            const scoredProducts = allProducts.map(p => {
+                let score = 0;
+
+                // 1. Category Filter (Absolute requirement for now, or heavy weight)
+                if (p.category === category) score += 50;
+                else return null; // Strict category filter for now
+
+                // 2. Price Proximity (Max 10 points)
+                // Calculate % difference. If 0% diff -> 10 pts. If 100% diff -> 0 pts.
+                if (p.price) {
+                    const priceDiffRatio = Math.abs(p.price - currentPrice) / (currentPrice || 1);
+                    const priceScore = Math.max(0, (1 - priceDiffRatio) * 10);
+                    score += priceScore;
+                }
+
+                // 3. Rating (Max 10 points)
+                // p.rating is 0-5. Multiply by 2.
+                score += (p.rating || 0) * 2;
+
+                // 4. Name Similarity (Keywords)
+                if (p.name) {
+                    const nameWords = p.name.toLowerCase().split(' ');
+                    const commonWords = nameWords.filter(w => currentNameWords.includes(w) && w.length > 3); // Ignore small words
+                    score += commonWords.length * 2;
+                }
+
+                // 5. Random Shuffle Factor (0-5 points) to keep it fresh
+                score += Math.random() * 5;
+
+                return { ...p, _score: score };
+            }).filter(p => p !== null);
+
+            // Sort by score descending
+            scoredProducts.sort((a, b) => b._score - a._score);
+
+            // Take top 4
+            setRelatedProducts(scoredProducts.slice(0, 4));
         }
     };
 
     const loadReviews = async (productId) => {
-        console.log('Loading reviews for product:', productId);
+        // console.log('Loading reviews for product:', productId);
         const result = await getProductReviews(productId);
-        console.log('getProductReviews result:', result);
+        // console.log('getProductReviews result:', result);
 
         if (result.success) {
-            console.log('Reviews loaded successfully:', result.data);
-            console.log('Number of reviews:', result.data.length);
+            // console.log('Reviews loaded successfully:', result.data);
             setReviews(result.data);
         } else {
             console.error('Failed to load reviews:', result.error);
@@ -100,18 +208,18 @@ const ProductDetail = () => {
         }
 
         try {
-            const { deleteReview } = await import('../firebase/firebaseService');
             const result = await deleteReview(reviewId, id);
 
             if (result.success) {
-                alert('Review deleted successfully');
+                toast.success('Review deleted successfully');
                 await loadReviews(id);
-                await loadProduct();
+                // Optionally reload product if rating aggregation is on product document
+                // await loadProduct(); 
             } else {
-                alert('Error deleting review: ' + result.error);
+                toast.error(`Error deleting review: ${result.error}`);
             }
         } catch (error) {
-            alert('Error deleting review: ' + error.message);
+            toast.error(`Error deleting review: ${error.message}`);
         }
     };
 
@@ -119,12 +227,12 @@ const ProductDetail = () => {
         e.preventDefault();
 
         if (!currentUser) {
-            alert('Please login to submit a review');
+            toast.info('Please login to submit a review');
             return;
         }
 
         if (!reviewComment.trim()) {
-            alert('Please write a review comment');
+            toast.warning('Please write a review comment');
             return;
         }
 
@@ -148,587 +256,559 @@ const ProductDetail = () => {
                 setShowReviewForm(false);
 
                 // Show success message
-                alert('Review submitted successfully! Thank you for your feedback.');
+                toast.success('Review submitted! Thank you for your feedback.');
 
                 // Wait for Firestore to update, then reload
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 await loadReviews(id);
-                await loadProduct();
+                // await loadProduct();
             } else {
-                alert('Error submitting review: ' + result.error);
+                toast.error(`Error submitting review: ${result.error}`);
             }
         } catch (error) {
-            alert('Error submitting review: ' + error.message);
+            toast.error(`Error submitting review: ${error.message}`);
         } finally {
             setSubmittingReview(false);
         }
     };
 
     const handleAddToCart = () => {
-        if (!selectedSize && product.sizes && product.sizes.length > 0) {
-            alert('Please select a size');
+        console.log('🔵 handleAddToCart triggered');
+
+        // Check if user is logged in
+        if (!currentUser) {
+            console.log('❌ User not logged in, redirecting to login');
+            toast.info('Please login to add items to your cart');
+            navigate('/login', { state: { from: `/product/${id}` } });
             return;
         }
-        alert(`Added ${quantity} ${product.name} to cart!\nSize: ${selectedSize}\nColor: ${selectedColor}`);
+
+        if (!selectedSize) {
+            toast.warning('Please select a size');
+            return;
+        }
+
+        // Get the appropriate image (color-specific or default)
+        let productImage;
+        if (product.colorImages && selectedColor && product.colorImages[selectedColor]) {
+            productImage = product.colorImages[selectedColor][0];
+        } else if (product.images && product.images.length > 0) {
+            productImage = product.images[0];
+        } else {
+            productImage = product.image;
+        }
+
+        // Create product object with all necessary properties
+        const productToAdd = {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            originalPrice: product.originalPrice,
+            image: productImage,
+            category: product.category,
+            stock: getStockLevel()
+        };
+
+        // Call addToCart with correct parameter order: (product, selectedSize, selectedColor, quantity)
+        addToCart(productToAdd, selectedSize, selectedColor, quantity);
+        navigate('/cart');
     };
 
-    const averageRating = product?.rating || 0;
-    const totalReviews = product?.reviewCount || 0;
+    const handleToggleWishlist = () => {
+        // Check if user is logged in
+        if (!currentUser) {
+            toast.info('Please login to add items to your wishlist');
+            navigate('/login', { state: { from: `/product/${id}` } });
+            return;
+        }
 
-    // Color mapping
-    const colorMap = {
-        'black': '#000000',
-        'white': '#FFFFFF',
-        'red': '#DC2626',
-        'blue': '#2563EB',
-        'navy': '#1E3A8A',
-        'green': '#16A34A',
-        'yellow': '#EAB308',
-        'orange': '#EA580C',
-        'purple': '#9333EA',
-        'pink': '#EC4899',
-        'gray': '#6B7280',
-        'brown': '#92400E',
-        'beige': '#D4C5B9',
-        'khaki': '#C3B091'
+        // Toggle: if in wishlist, remove it; otherwise add it
+        if (isInWishlist(product.id)) {
+            removeFromWishlist(product.id);
+        } else {
+            // Add to wishlist without size and color
+            addToWishlist(product);
+        }
     };
 
-    const getColorHex = (colorName) => {
-        return colorMap[colorName?.toLowerCase()] || '#9CA3AF';
+    const toggleAccordion = (section) => {
+        setActiveAccordion(activeAccordion === section ? null : section);
     };
 
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const handleColorSelect = (color) => {
+        setSelectedColor(color);
+        // Reset quantity when color changes
+        setQuantity(1);
+        // Reset to first image when color changes
+        setSelectedImage(0);
+        // Reset size if current size isn't available in new color
+        const newAvailableSizes = getAvailableSizes(product, color);
+        if (!newAvailableSizes.includes(selectedSize)) {
+            setSelectedSize(newAvailableSizes[0] || '');
+        }
     };
 
-    if (!product) {
-        return (
-            <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Loading product details...</p>
-            </div>
-        );
+    const handleSizeSelect = (size) => {
+        setSelectedSize(size);
+        // Reset quantity to 1 when size changes to prevent stock overflow
+        setQuantity(1);
+    };
+
+    // Calculate Stock
+    const getStockLevel = () => {
+        if (!product || !product.colorSizeStock) return 0;
+
+        // Matrix mode
+        if (selectedColor && product.colorSizeStock[selectedColor]) {
+            return product.colorSizeStock[selectedColor][selectedSize] || 0;
+        }
+
+        // Simple mode
+        if (product.colorSizeStock['default']) {
+            return product.colorSizeStock['default'][selectedSize] || 0;
+        }
+
+        return 0;
+    };
+
+    const stockLevel = getStockLevel();
+
+    // Calculate available stock (total stock minus what's already in cart)
+    const cartQuantity = getCartQuantity(id, selectedSize, selectedColor);
+    const availableStock = Math.max(0, stockLevel - cartQuantity);
+
+    if (!product) return <InlineLoader message="Loading..." />;
+
+    // Get images for selected color or fallback to default images
+    let productImages;
+    if (product.colorImages && selectedColor && product.colorImages[selectedColor]) {
+        // Use color-specific images
+        productImages = product.colorImages[selectedColor];
+    } else if (product.images) {
+        // Fallback to default images
+        productImages = product.images;
+    } else if (product.image) {
+        // Fallback to single image
+        productImages = [product.image];
+    } else {
+        productImages = [];
     }
 
-    const productImages = product.images || (product.image ? [product.image] : []);
-    const features = product.features || [
-        'Premium Quality Material',
-        'Comfortable Fit',
-        'Easy Care Instructions',
-        'Durable Construction'
-    ];
+    const availableSizes = getAvailableSizes(product, selectedColor);
+
+    // Calculate rating from reviews
+    const calculateAverageRating = () => {
+        if (reviews.length === 0) return product.rating || 0;
+        const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+        return (sum / reviews.length).toFixed(1);
+    };
+
+    const averageRating = calculateAverageRating();
+    const totalReviews = reviews.length;
+
+    // Helper to get count of stars for bar chart
+    const getStarCount = (star) => reviews.filter(r => Math.round(r.rating) === star).length;
 
     return (
         <div className="product-detail-page">
             <div className="container">
-                {/* Breadcrumb */}
-                <div className="breadcrumb">
-                    <Link to="/">Home</Link>
-                    <span>/</span>
-                    <Link to="/products">Products</Link>
-                    <span>/</span>
-                    <Link to={`/products?category=${product.category}`}>{product.category}</Link>
-                    <span>/</span>
-                    <span>{product.name}</span>
-                </div>
+                {/* Header / Nav (Hidden to match image look, or kept minimal) */}
+                <button className="back-button" onClick={() => navigate(-1)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Back
+                </button>
 
-                {/* Main Product Section */}
-                <div className="product-detail-grid">
-                    {/* Image Gallery */}
-                    <div className="product-gallery">
-                        <div className="main-image">
-                            {productImages.length > 0 ? (
-                                <img src={productImages[selectedImage]} alt={product.name} />
-                            ) : (
-                                <div className="image-placeholder">📦</div>
-                            )}
-                            {product.discount && (
-                                <span className="discount-badge">-{product.discount}%</span>
-                            )}
-                        </div>
-                        {productImages.length > 1 && (
-                            <div className="thumbnail-gallery">
+                <div className="product-detail-layout">
+                    {/* Left Side - Image Gallery */}
+                    <div className="left-column">
+                        <div
+                            className="main-image-container"
+                            onTouchStart={onTouchStart}
+                            onTouchMove={onTouchMove}
+                            onTouchEnd={onTouchEnd}
+                        >
+                            <img
+                                src={productImages[selectedImage]}
+                                alt={product.name}
+                                className="main-product-image"
+                            />
+                            {/* Thumbnails for desktop/tablet */}
+                            <div className="thumbnails-row">
                                 {productImages.map((img, idx) => (
                                     <div
                                         key={idx}
-                                        className={`thumbnail ${selectedImage === idx ? 'active' : ''}`}
+                                        className={`thumbnail-item ${selectedImage === idx ? 'active' : ''}`}
                                         onClick={() => setSelectedImage(idx)}
                                     >
-                                        <img src={img} alt={`${product.name} ${idx + 1}`} />
+                                        <img src={img} alt="thumbnail" />
                                     </div>
                                 ))}
+                                {/* Reference shows 3 thumbnails usually */}
+                                {[...Array(Math.max(0, 3 - productImages.length))].map((_, i) => (
+                                    <div key={`placeholder-${i}`} className="thumbnail-item placeholder"></div>
+                                ))}
                             </div>
-                        )}
+                        </div>
+
+                        {/* Dot indicators for mobile */}
+                        <div className="dot-indicators">
+                            {productImages.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    className={`dot ${selectedImage === idx ? 'active' : ''}`}
+                                    onClick={() => setSelectedImage(idx)}
+                                    aria-label={`View image ${idx + 1}`}
+                                />
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Product Info */}
-                    <div className="product-info-section">
-                        <div className="product-category-badge">{product.category}</div>
-                        <h1 className="product-title">{product.name}</h1>
+                    {/* Right Side - Product Info */}
+                    <div className="right-column">
+                        <div className="product-category-pill">{product.category || 'Men Fashion'}</div>
 
-                        {/* Rating */}
-                        <div className="product-rating-section">
-                            <div className="stars-large">
-                                {[...Array(5)].map((_, i) => (
-                                    <span key={i} className={i < Math.floor(averageRating) ? 'star filled' : 'star'}>
-                                        ★
-                                    </span>
-                                ))}
-                            </div>
-                            <span className="rating-text">
-                                {averageRating > 0 ? averageRating.toFixed(1) : 'No ratings yet'}
-                                {totalReviews > 0 && ` (${totalReviews} ${totalReviews === 1 ? 'review' : 'reviews'})`}
-                            </span>
-                        </div>
+                        <h1 className="product-title-large">{product.name}</h1>
 
-                        {/* Price */}
-                        <div className="price-section">
-                            <span className="current-price">₹{product.price}</span>
-                            {product.originalPrice && (
-                                <>
-                                    <span className="original-price">₹{product.originalPrice}</span>
-                                    <span className="savings">
-                                        Save ₹{(product.originalPrice - product.price).toFixed(2)}
-                                    </span>
-                                </>
-                            )}
-                        </div>
+                        <div className="product-price-large">₹{product.price}</div>
 
-                        {/* Stock Status */}
-                        <div className="stock-status">
-                            {product.stock > 0 ? (
-                                <span className="in-stock">
-                                    ✓ In Stock ({product.stock} available)
-                                </span>
-                            ) : (
-                                <span className="out-of-stock">✗ Out of Stock</span>
-                            )}
-                        </div>
 
-                        {/* Short Description */}
-                        <p className="product-short-description">{product.description}</p>
 
-                        {/* Color Selection */}
+                        {/* Colors Component */}
                         {product.colors && product.colors.length > 0 && (
-                            <div className="option-group">
-                                <label>Color: <strong>{selectedColor || 'Select a color'}</strong></label>
-                                <div className="color-options">
-                                    {product.colors.map((color) => {
-                                        // Check if color has stock (if colorStock exists)
-                                        const colorStock = product.colorStock?.[color];
-                                        const isAvailable = colorStock === undefined || colorStock > 0;
-                                        const showStockCount = colorStock !== undefined && colorStock < 100;
-
-                                        return (
-                                            <button
-                                                key={color}
-                                                className={`color-btn ${selectedColor === color ? 'active' : ''} ${!isAvailable ? 'disabled' : ''}`}
-                                                onClick={() => isAvailable && setSelectedColor(color)}
-                                                disabled={!isAvailable}
-                                                title={`${color}${colorStock !== undefined ? ` (${colorStock} in stock)` : ''}${!isAvailable ? ' - Out of Stock' : ''}`}
-                                            >
-                                                <span
-                                                    className="color-swatch-large"
-                                                    style={{
-                                                        backgroundColor: getColorHex(color),
-                                                        border: color.toLowerCase() === 'white' ? '2px solid #E5E7EB' : 'none'
-                                                    }}
-                                                >
-                                                    {!isAvailable && <span className="unavailable-overlay">✕</span>}
-                                                </span>
-                                                <span className="color-label">
-                                                    {color}
-                                                    {showStockCount && isAvailable && (
-                                                        <span className={`stock-count ${colorStock < 10 ? 'low-stock' : ''}`}>
-                                                            {colorStock < 10 ? 'Low Stock' : 'Available'}
-                                                        </span>
-                                                    )}
-                                                    {!isAvailable && (
-                                                        <span className="stock-count out-of-stock">Out of stock</span>
-                                                    )}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                            <div className="selection-area">
+                                <div className="selection-label">Select Color: {selectedColor}</div>
+                                <div className="product-colors">
+                                    {product.colors.map((color, idx) => (
+                                        <span
+                                            key={idx}
+                                            className={`color-dot ${selectedColor === color ? 'selected' : ''}`}
+                                            style={{ backgroundColor: getColorHex(color) }}
+                                            title={color}
+                                            onClick={() => handleColorSelect(color)}
+                                        ></span>
+                                    ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Size Selection */}
-                        {((product.sizes && product.sizes.length > 0) || product.sizeStock) && (
-                            <div className="option-group">
-                                <label>Size: <strong>{selectedSize || 'Select a size'}</strong></label>
-                                <div className="size-options">
-                                    {(product.sizes || Object.keys(product.sizeStock || {})).map((size) => {
-                                        // Get stock for this size
-                                        const sizeStock = product.sizeStock?.[size];
-                                        const isAvailable = sizeStock === undefined || sizeStock > 0;
-                                        const showStockCount = sizeStock !== undefined && sizeStock < 100;
+                        {/* Size Selector */}
+                        <div className="selection-area">
+                            <div className="selection-label">Select Size</div>
+                            <div className="size-pills">
+                                {availableSizes.length > 0 ? availableSizes.map(size => (
+                                    <button
+                                        key={size}
+                                        className={`size-pill-btn ${selectedSize === size ? 'selected' : ''}`}
+                                        onClick={() => handleSizeSelect(size)}
+                                    >
+                                        {size}
+                                    </button>
+                                )) : (
+                                    <p className="no-stock-msg">Out of Stock for this color</p>
+                                )}
+                            </div>
 
-                                        return (
-                                            <button
-                                                key={size}
-                                                className={`size-btn ${selectedSize === size ? 'active' : ''} ${!isAvailable ? 'disabled' : ''}`}
-                                                onClick={() => isAvailable && setSelectedSize(size)}
-                                                disabled={!isAvailable}
-                                                title={`${size}${sizeStock !== undefined ? ` (${sizeStock} in stock)` : ''}${!isAvailable ? ' - Out of Stock' : ''}`}
-                                            >
-                                                <span className="size-label">{size}</span>
-                                                {showStockCount && isAvailable && (
-                                                    <span className={`stock-count ${sizeStock < 10 ? 'low-stock' : sizeStock < 25 ? 'medium-stock' : ''}`}>
-                                                        {sizeStock < 10 ? 'Low Stock' : sizeStock < 25 ? 'Limited' : 'Available'}
-                                                    </span>
-                                                )}
-                                                {!isAvailable && (
-                                                    <>
-                                                        <span className="stock-count out-of-stock">Out</span>
-                                                        <span className="unavailable-mark-size">✕</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                            {/* Stock Indicator */}
+                            {selectedSize && (
+                                <div className={`stock-indicator ${availableStock <= 5 ? 'low-stock' : ''}`}>
+                                    {availableStock > 0 ? (
+                                        availableStock <= 10 ? (
+                                            cartQuantity > 0 ? `${availableStock} more available (${cartQuantity} in cart)` : `Only ${availableStock} items left!`
+                                        ) : (
+                                            'In Stock'
+                                        )
+                                    ) : (
+                                        cartQuantity > 0 ? `All items in cart (${cartQuantity})` : 'Out of Stock'
+                                    )}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Quantity */}
-                        <div className="option-group">
-                            <label>Quantity:</label>
-                            <div className="quantity-selector">
-                                <button
-                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                    disabled={quantity <= 1}
-                                >
-                                    −
-                                </button>
-                                <input type="number" value={quantity} readOnly />
-                                <button
-                                    onClick={() => {
-                                        // Calculate available stock based on selected size/color
-                                        let maxStock = product.stock || 99;
-
-                                        // If size is selected and has stock tracking
-                                        if (selectedSize && product.sizeStock && product.sizeStock[selectedSize] !== undefined) {
-                                            maxStock = Math.min(maxStock, product.sizeStock[selectedSize]);
-                                        }
-
-                                        // If color is selected and has stock tracking
-                                        if (selectedColor && product.colorStock && product.colorStock[selectedColor] !== undefined) {
-                                            maxStock = Math.min(maxStock, product.colorStock[selectedColor]);
-                                        }
-
-                                        setQuantity(Math.min(maxStock, quantity + 1));
-                                    }}
-                                    disabled={(() => {
-                                        let maxStock = product.stock || 99;
-                                        if (selectedSize && product.sizeStock && product.sizeStock[selectedSize] !== undefined) {
-                                            maxStock = Math.min(maxStock, product.sizeStock[selectedSize]);
-                                        }
-                                        if (selectedColor && product.colorStock && product.colorStock[selectedColor] !== undefined) {
-                                            maxStock = Math.min(maxStock, product.colorStock[selectedColor]);
-                                        }
-                                        return quantity >= maxStock;
-                                    })()}
-                                >
-                                    +
-                                </button>
-                            </div>
-                            <span className="stock-info-text">
-                                {(() => {
-                                    let maxStock = product.stock || 99;
-                                    if (selectedSize && product.sizeStock && product.sizeStock[selectedSize] !== undefined) {
-                                        maxStock = Math.min(maxStock, product.sizeStock[selectedSize]);
-                                    }
-                                    if (selectedColor && product.colorStock && product.colorStock[selectedColor] !== undefined) {
-                                        maxStock = Math.min(maxStock, product.colorStock[selectedColor]);
-                                    }
-
-                                    if (maxStock === 0) {
-                                        return <span className="text-error">Out of stock</span>;
-                                    } else if (maxStock < 10) {
-                                        return <span className="text-warning">Only {maxStock} available</span>;
-                                    } else if (maxStock < 100) {
-                                        return <span className="text-success">{maxStock} available</span>;
-                                    } else {
-                                        return <span className="text-success">In stock</span>;
-                                    }
-                                })()}
-                            </span>
+                            )}
                         </div>
+
+                        {/* Quantity (Hidden initially, but logic requested to consider quantity on add) */}
+                        {/* Modified: Always show quantity or show on size select? 
+                            User requirement: "also when add to cart clicked , consider the quantity also"
+                            To support this better, maybe we should show quantity selector always or after size select.
+                            The current logic shows it after "Add to Cart" clicked first time (which was just setting showQuantity=true).
+                            But now "Add to Cart" navigates away. So we should probably let user set quantity beforehand or 
+                            if they click "Add to Cart", it adds 1 (default) and goes to cart.
+                            
+                            Let's make quantity selector visible if size is selected? Or just allow user to add 1 and then update in cart.
+                            However, the code `setShowQuantity(true)` in handleAddToCart was preventing immediate add.
+                            Updated logic: `handleAddToCart` now adds immediately.
+                            So `showQuantity` state might be redundant if we want typical ecommerce flow.
+                            Let's keep the Quantity selector visible if a size is selected, so they can choose > 1.
+                        */}
+
+                        {(selectedSize || showQuantity) && (
+                            <div className="quantity-area">
+                                <div className="quantity-label">Quantity</div>
+                                <div className="quantity-stepper">
+                                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</button>
+                                    <span>{quantity}</span>
+                                    <button onClick={() => setQuantity(Math.min(quantity + 1, availableStock))}>+</button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Action Buttons */}
-                        <div className="action-buttons">
+                        <div className="cart-actions">
                             <button
-                                className="btn btn-primary btn-lg add-to-cart-btn"
+                                className="add-cart-btn-black"
                                 onClick={handleAddToCart}
-                                disabled={product.stock === 0}
+                                disabled={availableStock === 0}
+                                style={{ opacity: availableStock === 0 ? 0.5 : 1, cursor: availableStock === 0 ? 'not-allowed' : 'pointer' }}
                             >
-                                🛒 Add to Cart
+                                {availableStock > 0 ? 'Add to Cart' : (cartQuantity > 0 ? 'All in Cart' : 'Out of Stock')}
                             </button>
-                            <button className="btn btn-secondary btn-lg wishlist-btn">
-                                ♥ Add to Wishlist
+                            <button
+                                className={`wishlist-btn-outline ${isInWishlist(product.id) ? 'in-wishlist' : ''}`}
+                                onClick={handleToggleWishlist}
+                                title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            >
+                                {isInWishlist(product.id) ? '❤️' : '♡'}
                             </button>
                         </div>
 
-                        {/* Product Highlights */}
-                        <div className="product-highlights">
-                            <h3>Product Highlights</h3>
-                            <ul>
-                                {features.map((feature, idx) => (
-                                    <li key={idx}>
-                                        <span className="check-icon">✓</span>
-                                        {feature}
-                                    </li>
-                                ))}
-                            </ul>
+                        {/* Accordions */}
+                        <div className="accordions-list">
+                            {/* Description & Fit */}
+                            <div className="accordion-wrapper">
+                                <button
+                                    className="accordion-trigger"
+                                    onClick={() => toggleAccordion('description')}
+                                >
+                                    <span>Description & Fit</span>
+                                    <span className={`chevron ${activeAccordion === 'description' ? 'up' : 'down'}`}>^</span>
+                                </button>
+                                {activeAccordion === 'description' && (
+                                    <div className="accordion-body">
+                                        <p>{product.description}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Shipping */}
+                            <div className="accordion-wrapper">
+                                <button
+                                    className="accordion-trigger"
+                                    onClick={() => toggleAccordion('shipping')}
+                                >
+                                    <span>Shipping</span>
+                                    <span className={`chevron ${activeAccordion === 'shipping' ? 'up' : 'down'}`}>^</span>
+                                </button>
+                                {activeAccordion === 'shipping' && (
+                                    <div className="accordion-body">
+                                        <div className="shipping-grid-icons">
+                                            <div className="ship-item">
+                                                <div className="ship-icon">🛡️</div>
+                                                <div className="ship-detail">
+                                                    <strong>Secure</strong>
+                                                    <span>Verified Payment</span>
+                                                </div>
+                                            </div>
+                                            <div className="ship-item">
+                                                <div className="ship-icon">📦</div>
+                                                <div className="ship-detail">
+                                                    <strong>Package</strong>
+                                                    <span>Regular Package</span>
+                                                </div>
+                                            </div>
+                                            <div className="ship-item">
+                                                <div className="ship-icon">📅</div>
+                                                <div className="ship-detail">
+                                                    <strong>Delivery Time</strong>
+                                                    <span>5-7 Working Days</span>
+                                                </div>
+                                            </div>
+                                            <div className="ship-item">
+                                                <div className="ship-icon">🚚</div>
+                                                <div className="ship-detail">
+                                                    <strong>Estimated Arrival</strong>
+                                                    <span>
+                                                        {(() => {
+                                                            const date = new Date();
+                                                            const options = { day: 'numeric', month: 'short' };
+
+                                                            const start = new Date(date);
+                                                            start.setDate(date.getDate() + 5);
+
+                                                            const end = new Date(date);
+                                                            end.setDate(date.getDate() + 7);
+
+                                                            return `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Tabs Section */}
-                <div className="product-tabs">
-                    <div className="tab-headers">
-                        <button
-                            className={`tab-header ${activeTab === 'description' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('description')}
-                        >
-                            Description
-                        </button>
-                        <button
-                            className={`tab-header ${activeTab === 'reviews' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('reviews')}
-                        >
-                            Reviews ({reviews.length})
-                        </button>
-                        <button
-                            className={`tab-header ${activeTab === 'shipping' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('shipping')}
-                        >
-                            Shipping & Returns
-                        </button>
+                {/* Rating & Reviews Section */}
+                <div className="reviews-container-ref">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 className="reviews-heading">Rating & Reviews</h2>
+                        {currentUser && !showReviewForm && (
+                            <button
+                                className="add-review-btn"
+                                style={{ padding: '8px 16px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: 'pointer' }}
+                                onClick={() => setShowReviewForm(true)}
+                            >
+                                Write a Review
+                            </button>
+                        )}
                     </div>
 
-                    <div className="tab-content">
-                        {activeTab === 'description' && (
-                            <div className="tab-pane">
-                                <h3>Product Description</h3>
-                                <p>{product.description || 'Premium quality product designed for comfort and style.'}</p>
-                                <h4>Features</h4>
-                                <ul>
-                                    {features.map((feature, idx) => (
-                                        <li key={idx}>{feature}</li>
-                                    ))}
-                                </ul>
-                                {product.specifications && (
-                                    <>
-                                        <h4>Specifications</h4>
-                                        <table className="specifications-table">
-                                            <tbody>
-                                                {Object.entries(product.specifications).map(([key, value]) => (
-                                                    <tr key={key}>
-                                                        <td><strong>{key}</strong></td>
-                                                        <td>{value}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'reviews' && (
-                            <div className="tab-pane">
-                                {totalReviews > 0 && (
-                                    <div className="reviews-summary">
-                                        <div className="average-rating">
-                                            <div className="rating-number">{averageRating.toFixed(1)}</div>
-                                            <div className="stars-large">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <span key={i} className={i < Math.floor(averageRating) ? 'star filled' : 'star'}>
-                                                        ★
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <div className="total-reviews">Based on {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}</div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {reviews.length > 0 ? (
-                                    <div className="reviews-list">
-                                        {reviews.map((review) => (
-                                            <div key={review.id} className="review-card">
-                                                <div className="review-header">
-                                                    <div className="reviewer-info">
-                                                        <div className="reviewer-avatar">
-                                                            {review.userName.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <div className="reviewer-name">
-                                                                {review.userName}
-                                                                {review.verified && (
-                                                                    <span className="verified-badge">✓ Verified Purchase</span>
-                                                                )}
-                                                            </div>
-                                                            <div className="review-date">{formatDate(review.createdAt)}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="review-rating">
-                                                        {[...Array(5)].map((_, i) => (
-                                                            <span key={i} className={i < review.rating ? 'star filled' : 'star'}>
-                                                                ★
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <p className="review-comment">{review.comment}</p>
-
-                                                {/* Delete button for review owner or admin */}
-                                                {currentUser && (currentUser.uid === review.userId || currentUser.role === 'admin') && (
-                                                    <button
-                                                        className="btn btn-outline btn-sm delete-review-btn"
-                                                        onClick={() => handleDeleteReview(review.id)}
-                                                    >
-                                                        🗑️ Delete Review
-                                                    </button>
-                                                )}
-                                            </div>
+                    {/* Review Form */}
+                    {showReviewForm && (
+                        <div className="review-form-container" style={{ marginBottom: '20px', padding: '20px', border: '1px solid #eee' }}>
+                            <h3>Write your review</h3>
+                            <form onSubmit={handleSubmitReview}>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px' }}>Rating:</label>
+                                    <div style={{ fontSize: '24px', cursor: 'pointer' }}>
+                                        {[1, 2, 3, 4, 5].map(star => (
+                                            <span
+                                                key={star}
+                                                onClick={() => setReviewRating(star)}
+                                                style={{ color: star <= reviewRating ? '#ffc107' : '#e4e5e9', marginRight: '5px' }}
+                                            >
+                                                ★
+                                            </span>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="no-reviews">
-                                        <p>No reviews yet. Be the first to review this product!</p>
-                                    </div>
-                                )}
-
-                                {!showReviewForm ? (
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px' }}>Comment:</label>
+                                    <textarea
+                                        value={reviewComment}
+                                        onChange={(e) => setReviewComment(e.target.value)}
+                                        placeholder="What did you like or dislike?"
+                                        style={{ width: '100%', padding: '10px', minHeight: '100px', border: '1px solid #ddd' }}
+                                        required
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
                                     <button
-                                        className="btn btn-primary write-review-btn"
-                                        onClick={() => {
-                                            if (!currentUser) {
-                                                alert('Please login to write a review');
-                                                return;
-                                            }
-                                            setShowReviewForm(true);
-                                        }}
+                                        type="submit"
+                                        disabled={submittingReview}
+                                        style={{ padding: '10px 20px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: submittingReview ? 'not-allowed' : 'pointer' }}
                                     >
-                                        Write a Review
+                                        {submittingReview ? 'Submitting...' : 'Submit Review'}
                                     </button>
-                                ) : (
-                                    <form className="review-form" onSubmit={handleSubmitReview}>
-                                        <h4>Write Your Review</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReviewForm(false)}
+                                        style={{ padding: '10px 20px', backgroundColor: '#fff', color: '#000', border: '1px solid #000', cursor: 'pointer' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
 
-                                        <div className="form-group">
-                                            <label>Your Rating:</label>
-                                            <div className="star-rating-selector">
-                                                {[1, 2, 3, 4, 5].map((star) => (
-                                                    <button
-                                                        key={star}
-                                                        type="button"
-                                                        className={`star-btn ${star <= reviewRating ? 'filled' : ''}`}
-                                                        onClick={() => setReviewRating(star)}
-                                                    >
-                                                        ★
-                                                    </button>
-                                                ))}
-                                                <span className="rating-label">({reviewRating} {reviewRating === 1 ? 'star' : 'stars'})</span>
+                    <div className="reviews-content-grid">
+                        {/* Left: Big Rating */}
+                        <div className="rating-summary-box">
+                            <div className="big-rating-number">
+                                {averageRating} <span className="small-total">/ 5</span>
+                            </div>
+                            <div className="rating-bars">
+                                {[5, 4, 3, 2, 1].map((star) => {
+                                    const count = getStarCount(star);
+                                    const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                                    return (
+                                        <div key={star} className="rating-bar-row">
+                                            <span className="star-label">★ {star}</span>
+                                            <div className="bar-bg">
+                                                <div className="bar-fill" style={{ width: `${percentage}%` }}></div>
                                             </div>
+                                            <span style={{ fontSize: '12px', color: '#666', marginLeft: '5px' }}>{count}</span>
                                         </div>
-
-                                        <div className="form-group">
-                                            <label>Your Review:</label>
-                                            <textarea
-                                                value={reviewComment}
-                                                onChange={(e) => setReviewComment(e.target.value)}
-                                                placeholder="Share your experience with this product..."
-                                                rows="5"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div className="form-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                onClick={() => {
-                                                    setShowReviewForm(false);
-                                                    setReviewComment('');
-                                                    setReviewRating(5);
-                                                }}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                className="btn btn-primary"
-                                                disabled={submittingReview}
-                                            >
-                                                {submittingReview ? 'Submitting...' : 'Submit Review'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                )}
+                                    );
+                                })}
                             </div>
-                        )}
+                            <div className="review-count-text">({totalReviews} Reviews)</div>
+                        </div>
 
-                        {activeTab === 'shipping' && (
-                            <div className="tab-pane">
-                                <h3>Shipping Information</h3>
-                                <ul>
-                                    <li>Free shipping on orders over ₹500</li>
-                                    <li>Standard delivery: 5-7 business days</li>
-                                    <li>Express delivery: 2-3 business days (additional charges apply)</li>
-                                    <li>International shipping available</li>
-                                </ul>
-                                <h3>Returns & Exchanges</h3>
-                                <ul>
-                                    <li>30-day return policy</li>
-                                    <li>Items must be unworn and in original packaging</li>
-                                    <li>Free returns for defective items</li>
-                                    <li>Exchange available for different sizes/colors</li>
-                                </ul>
-                            </div>
-                        )}
+                        {/* Right: Review List (formerly Slider Card) */}
+                        <div className="review-list-area" style={{ flex: 1 }}>
+                            {reviews.length > 0 ? (
+                                <div className="reviews-list" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {reviews.map((review) => (
+                                        <div key={review.id} className="review-card-item" style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px' }}>
+                                            <div className="reviewer-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div className="reviewer-avatar-circle" style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#ddd' }}>
+                                                        <img
+                                                            src={`https://ui-avatars.com/api/?name=${review.userName || 'User'}&background=random`}
+                                                            alt={review.userName}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h4 style={{ margin: 0 }}>{review.userName}</h4>
+                                                        <div className="reviewer-stars" style={{ color: '#ffc107' }}>
+                                                            {'★'.repeat(Math.round(review.rating))}{'☆'.repeat(5 - Math.round(review.rating))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div className="review-date-right" style={{ fontSize: '12px', color: '#888' }}>
+                                                        {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                                                    </div>
+                                                    {currentUser && (currentUser.uid === review.userId || userData?.role === 'admin') && (
+                                                        <button
+                                                            onClick={() => handleDeleteReview(review.id)}
+                                                            style={{ marginTop: '5px', color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}
+                                                            title={userData?.role === 'admin' && currentUser.uid !== review.userId ? 'Delete as Admin' : 'Delete your review'}
+                                                        >
+                                                            Delete {userData?.role === 'admin' && currentUser.uid !== review.userId ? '(Admin)' : ''}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="review-text-body" style={{ margin: 0, color: '#444' }}>
+                                                "{review.comment}"
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                    <p>No reviews yet. Be the first to review this product!</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
                 {/* Related Products */}
-                {relatedProducts.length > 0 && (
-                    <div className="related-products-section">
-                        <h2>You May Also Like</h2>
-                        <div className="related-products-grid">
-                            {relatedProducts.map((relatedProduct) => (
-                                <Link
-                                    key={relatedProduct.id}
-                                    to={`/product/${relatedProduct.id}`}
-                                    className="related-product-card"
-                                >
-                                    <div className="related-product-image">
-                                        {relatedProduct.image ? (
-                                            <img src={relatedProduct.image} alt={relatedProduct.name} />
-                                        ) : (
-                                            <div className="image-placeholder">📦</div>
-                                        )}
-                                    </div>
-                                    <div className="related-product-info">
-                                        <h4>{relatedProduct.name}</h4>
-                                        <div className="related-product-rating">
-                                            {[...Array(5)].map((_, i) => (
-                                                <span key={i} className={i < Math.floor(relatedProduct.rating || 0) ? 'star filled' : 'star'}>
-                                                    ★
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <p className="related-product-price">₹{relatedProduct.price}</p>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
+                <div className="related-products-ref">
+                    <h2>You might also like</h2>
+                    <div className="related-products-list-ref">
+                        {relatedProducts.map(rel => (
+                            <Link to={`/product/${rel.id}`} key={rel.id} className="related-card-ref">
+                                <div className="related-img-box">
+                                    <img src={rel.image || rel.images?.[0]} alt={rel.name} />
+                                </div>
+                                <div className="related-info-box">
+                                    <h3>{rel.name}</h3>
+                                    <div className="related-rating">★ {rel.rating ? parseFloat(rel.rating).toFixed(1) : '0.0'}/5</div>
+                                    <div className="related-price">₹{rel.price}</div>
+                                </div>
+                            </Link>
+                        ))}
                     </div>
-                )}
+                </div>
+
             </div>
         </div>
     );

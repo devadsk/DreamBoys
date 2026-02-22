@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getProducts, addProduct, updateProduct, deleteProduct } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig } from '../../firebase/config';
@@ -11,6 +12,7 @@ const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
 const AdminProducts = () => {
+    const toast = useToast();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -31,21 +33,33 @@ const AdminProducts = () => {
         image: ''
     });
 
-    const [imageFile, setImageFile] = useState(null);
+    // Manual upload image slots: { color__slotIdx: File | string }
+    const [manualImageSlots, setManualImageSlots] = useState({});
+
+    const [imageFile, setImageFile] = useState(null); // Keep for legacy/fallback single image
     const [imagePreview, setImagePreview] = useState('');
     const [newSize, setNewSize] = useState('');
     const [newSizeQty, setNewSizeQty] = useState('');
     const [colorsInput, setColorsInput] = useState('');
 
-    // Bulk import states
+    // Bulk import states - NEW WORKFLOW
+    const [importStep, setImportStep] = useState(1); // 1: CSV, 2: Images, 3: Assignment, 4: Processing
     const [csvData, setCsvData] = useState('');
+    const [parsedProducts, setParsedProducts] = useState([]); // Grouped by handle
+    const [uploadedImages, setUploadedImages] = useState([]); // File objects
+    const [imageAssignments, setImageAssignments] = useState({}); // { variantKey: [file1, file2, file3, file4] }
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
+    const [importProgress, setImportProgress] = useState(0);
 
-    const sampleCSV = `name,description,price,originalPrice,discount,category,colors,colorStock,sizeStock,images,features,specifications
-Premium White Shirt,"Classic formal white shirt made from 100% premium cotton. Perfect for office wear and formal occasions.",59.99,79.99,25,shirts,White Blue Pink,White:30 Blue:25 Pink:20,XS:5 S:15 M:20 L:10 XL:5,https://i.imgur.com/example1.jpg|https://i.imgur.com/example1b.jpg,"Premium Quality Cotton|Wrinkle Resistant|Easy Care|Comfortable Fit","Material:100% Cotton|Fit:Regular|Care:Machine Wash|Origin:Made in USA"
-Casual Blue T-Shirt,"Comfortable cotton t-shirt for everyday wear. Soft fabric with modern fit.",29.99,39.99,25,tshirts,Blue Red Green Black,Blue:40 Red:30 Green:25 Black:50,S:25 M:30 L:25 XL:15 XXL:5,https://i.imgur.com/example2.jpg,"100% Cotton|Breathable Fabric|Durable Construction|Modern Fit","Material:Cotton Blend|Fit:Slim|Care:Machine Wash Cold|Weight:180 GSM"
-Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for all-day wear.",89.99,119.99,25,jeans,Blue Black,Blue:45 Black:35,28:10 30:15 32:20 34:15 36:10,https://i.imgur.com/example3.jpg|https://i.imgur.com/example3b.jpg|https://i.imgur.com/example3c.jpg,"Stretch Denim|5-Pocket Design|Reinforced Stitching|Fade Resistant","Material:98% Cotton 2% Elastane|Fit:Straight|Rise:Mid|Wash:Dark Blue"`;
+    const sampleCSV = `handle,title,category,price,description,size,color,stock
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,S,Black,4
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,M,Black,10
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,M,Blue,6
+shirt-men,Men Shirt,shirts,1299,Premium cotton shirt,L,Blue,2
+jean-women,Women Jean,jeans,1899,Slim fit denim,28,Black,5
+jean-women,Women Jean,jeans,1899,Slim fit denim,30,Black,8
+jean-women,Women Jean,jeans,1899,Slim fit denim,30,Blue,3`;
 
     useEffect(() => {
         loadProducts();
@@ -84,31 +98,56 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
         setUploading(true);
 
         try {
-            let imageUrl = formData.image;
+            // Process and upload all images in manualImageSlots
+            const colorImages = {};
+            const allSizeStock = formData.colorSizeStock;
+            const activeColors = formData.colors.length > 0 ? formData.colors : ['default'];
 
-            if (imageFile) {
-                imageUrl = await uploadImage(imageFile);
+            // Iterate through active colors and their slots (1-4)
+            for (const color of activeColors) {
+                const urls = [];
+                for (let i = 1; i <= 4; i++) {
+                    const slotKey = `${color}__${i}`;
+                    const slotValue = manualImageSlots[slotKey];
+
+                    if (slotValue) {
+                        if (slotValue instanceof File) {
+                            // Upload new file
+                            const url = await uploadImage(slotValue);
+                            urls.push(url);
+                        } else if (typeof slotValue === 'string') {
+                            // Existing URL
+                            urls.push(slotValue);
+                        }
+                    }
+                }
+                if (urls.length > 0) {
+                    colorImages[color] = urls;
+                }
             }
 
             // Calculate total stock and get sizes from colorSizeStock
             let totalStock = 0;
             const allSizes = new Set();
 
-            Object.values(formData.colorSizeStock).forEach(sizeObj => {
+            Object.values(allSizeStock).forEach(sizeObj => {
                 Object.entries(sizeObj).forEach(([size, qty]) => {
                     totalStock += parseInt(qty) || 0;
                     if (qty > 0) allSizes.add(size);
                 });
             });
 
+            // Construct final product data
             const productData = {
                 ...formData,
                 price: parseFloat(formData.price),
                 sizes: Array.from(allSizes),
                 stock: totalStock,
-                colorSizeStock: formData.colorSizeStock,
-                image: imageUrl,
-                images: [imageUrl]
+                colorSizeStock: allSizeStock,
+                colorImages: colorImages,
+                // Primary image used for thumbnails/display
+                image: Object.values(colorImages)[0]?.[0] || '',
+                images: Object.values(colorImages)[0] || []
             };
 
             if (editingProduct) {
@@ -121,7 +160,7 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
             resetForm();
             loadProducts();
         } catch (error) {
-            alert('Error saving product: ' + error.message);
+            toast.error(`Error saving product: ${error.message}`);
         } finally {
             setUploading(false);
         }
@@ -140,6 +179,26 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                 colorSizeStock[color] = { ...product.sizeStock };
             });
         }
+
+        // Populate manualImageSlots from colorImages or images
+        const initialSlots = {};
+        if (product.colorImages) {
+            Object.entries(product.colorImages).forEach(([color, urls]) => {
+                urls.forEach((url, idx) => {
+                    if (idx < 4) {
+                        initialSlots[`${color}__${idx + 1}`] = url;
+                    }
+                });
+            });
+        } else if (product.images) {
+            // Fallback for products without color-specific images
+            product.images.forEach((url, idx) => {
+                if (idx < 4) {
+                    initialSlots[`default__${idx + 1}`] = url;
+                }
+            });
+        }
+        setManualImageSlots(initialSlots);
 
         setFormData({
             name: product.name,
@@ -172,6 +231,7 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
             colorSizeStock: {},
             image: ''
         });
+        setManualImageSlots({});
         setColorsInput('');
         setImageFile(null);
         setImagePreview('');
@@ -240,216 +300,279 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
         return total;
     };
 
-    // CSV Parser
-    const parseCSV = (csv) => {
-        const parseCSVLine = (line) => {
-            const result = [];
+    // ========== NEW BULK IMPORT WORKFLOW ==========
+
+    // Step 1: Parse CSV and group by handle + color
+    const handleCSVUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const csv = event.target.result;
+            setCsvData(csv);
+
+            try {
+                const parsed = parseCSVToProducts(csv);
+                setParsedProducts(parsed);
+                setImportStep(2); // Move to image upload
+                setImportResult(null);
+            } catch (error) {
+                setImportResult({ success: false, error: `CSV Parse Error: ${error.message}` });
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const parseCSVToProducts = (csv) => {
+        // Remove BOM if present
+        const content = csv.startsWith('\uFEFF') ? csv.slice(1) : csv;
+        const lines = content.trim().split(/\r?\n/);
+
+        if (lines.length < 2) throw new Error('CSV must have at least a header and one data row');
+
+        // Parse headers
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+        console.log("CSV Headers:", headers);
+
+        // Required fields
+        const required = ['handle', 'title', 'category', 'price', 'size', 'color', 'stock'];
+        const missing = required.filter(field => !headers.includes(field));
+        if (missing.length > 0) {
+            throw new Error(`Missing required columns: ${missing.join(', ')}`);
+        }
+
+        // Parse rows
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+
+            const values = [];
             let current = '';
             let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                const nextChar = line[i + 1];
-
+            for (let j = 0; j < lines[i].length; j++) {
+                const char = lines[i][j];
                 if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        current += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
+                    inQuotes = !inQuotes;
                 } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
+                    values.push(current.trim().replace(/^"|"$/g, ''));
                     current = '';
                 } else {
                     current += char;
                 }
             }
-            result.push(current.trim());
-            return result;
-        };
+            values.push(current.trim().replace(/^"|"$/g, ''));
 
-        const lines = csv.trim().split(/\r?\n/);
-        const headers = parseCSVLine(lines[0]);
-        const products = [];
+            const row = {};
+            headers.forEach((h, index) => {
+                row[h] = values[index] || '';
+            });
+            rows.push(row);
+        }
 
-        for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
+        // Group by handle, then by color within each handle
+        const productGroups = [];
+        const handleMap = {};
 
-            const values = parseCSVLine(lines[i]);
-            if (values.length !== headers.length) {
-                console.warn(`Line ${i + 1}: Expected ${headers.length} values, got ${values.length}. Skipping.`);
-                continue;
+        rows.forEach(row => {
+            if (!row.handle) return;
+
+            if (!handleMap[row.handle]) {
+                handleMap[row.handle] = {
+                    handle: row.handle,
+                    title: row.title,
+                    category: row.category,
+                    price: row.price,
+                    description: row.description || row.title,
+                    variants: {} // { color: [sizes] }
+                };
+                productGroups.push(handleMap[row.handle]);
             }
 
-            const product = {};
-            headers.forEach((header, index) => {
-                const value = values[index];
+            const product = handleMap[row.handle];
+            const color = row.color || 'Default';
 
-                // Skip rating and reviewCount - these should only come from users
-                if (header === 'rating' || header === 'reviewCount') {
-                    return; // Ignore these columns completely
-                }
+            if (!product.variants[color]) {
+                product.variants[color] = [];
+            }
 
-                if (header === 'price' || header === 'originalPrice') {
-                    product[header] = parseFloat(value) || 0;
-                } else if (header === 'discount') {
-                    product[header] = parseInt(value) || 0;
-                } else if (header === 'colorSizeStock') {
-                    // New combined color-size stock format
-                    // Format: "Blue:S:10 M:5 L:8|Red:S:8 M:12 L:6"
-                    const colorSizeStock = {};
-                    let totalStock = 0;
-                    const allSizes = new Set();
-                    const allColors = [];
+            product.variants[color].push({
+                size: row.size,
+                stock: parseInt(row.stock) || 0
+            });
+        });
 
-                    const colorGroups = value.split('|').filter(g => g.trim());
-                    colorGroups.forEach(group => {
-                        const parts = group.trim().split(':');
-                        if (parts.length < 2) return;
+        console.log("Parsed Products:", productGroups);
+        return productGroups;
+    };
 
-                        const color = parts[0].trim();
-                        allColors.push(color);
-                        colorSizeStock[color] = {};
+    // Step 2: Handle image upload
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        setUploadedImages(files);
+        setImportStep(3); // Move to assignment
+    };
 
-                        // Parse size:quantity pairs for this color
-                        for (let i = 1; i < parts.length; i += 2) {
-                            if (i + 1 < parts.length) {
-                                const size = parts[i].trim();
-                                const qty = parseInt(parts[i + 1]) || 0;
-                                colorSizeStock[color][size] = qty;
-                                allSizes.add(size);
-                                totalStock += qty;
-                            }
-                        }
-                    });
+    // Step 3: Image assignment helpers
+    const getVariantKey = (handle, color) => `${handle}__${color}`;
 
-                    product.colorSizeStock = colorSizeStock;
-                    product.colors = allColors;
-                    product.sizes = Array.from(allSizes);
-                    product.stock = totalStock;
-                } else if (header === 'sizeStock') {
-                    // Convert simple sizeStock to colorSizeStock format with 'default' key
-                    const sizeStock = {};
-                    const pairs = value.split(' ').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [size, stock] = pair.split(':');
-                        if (size && stock) {
-                            sizeStock[size.trim()] = parseInt(stock) || 0;
-                        }
-                    });
-                    // Store as colorSizeStock with 'default' key for products without colors
-                    product.colorSizeStock = { 'default': sizeStock };
-                    product.stock = Object.values(sizeStock).reduce((sum, qty) => sum + qty, 0);
-                    product.sizes = Object.keys(sizeStock);
-                    product.colors = []; // No colors for simple stock
+    const assignImageToSlot = (variantKey, slotIndex, imageFile) => {
+        setImageAssignments(prev => {
+            const current = prev[variantKey] || [null, null, null, null];
+            const updated = [...current];
+            updated[slotIndex] = imageFile;
+            return { ...prev, [variantKey]: updated };
+        });
+    };
 
-                } else if (header === 'colorStock') {
-                    const colorStock = {};
-                    const pairs = value.split(' ').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [color, stock] = pair.split(':');
-                        if (color && stock) {
-                            colorStock[color.trim()] = parseInt(stock) || 0;
-                        }
-                    });
-                    product.colorStock = colorStock;
-                } else if (header === 'colors') {
-                    product[header] = value.split(' ').map(v => v.trim()).filter(v => v);
-                } else if (header === 'images') {
-                    const imageUrls = value.split('|').map(v => v.trim()).filter(v => v);
-                    product[header] = imageUrls;
-                    product.image = imageUrls[0] || '';
-                } else if (header === 'features') {
-                    // Features are pipe-separated
-                    product[header] = value.split('|').map(v => v.trim()).filter(v => v);
-                } else if (header === 'specifications') {
-                    // Specifications are pipe-separated key:value pairs
-                    const specs = {};
-                    const pairs = value.split('|').filter(p => p.trim());
-                    pairs.forEach(pair => {
-                        const [key, val] = pair.split(':');
-                        if (key && val) {
-                            specs[key.trim()] = val.trim();
-                        }
-                    });
-                    product[header] = specs;
-                } else {
-                    product[header] = value;
+    const removeImageFromSlot = (variantKey, slotIndex) => {
+        setImageAssignments(prev => {
+            const current = prev[variantKey] || [null, null, null, null];
+            const updated = [...current];
+            updated[slotIndex] = null;
+            return { ...prev, [variantKey]: updated };
+        });
+    };
+
+    const getUnassignedImages = () => {
+        const assigned = new Set();
+        Object.values(imageAssignments).forEach(slots => {
+            slots.forEach(img => {
+                if (img) assigned.add(img);
+            });
+        });
+        return uploadedImages.filter(img => !assigned.has(img));
+    };
+
+    const validateAssignments = () => {
+        const errors = [];
+        parsedProducts.forEach(product => {
+            Object.keys(product.variants).forEach(color => {
+                const key = getVariantKey(product.handle, color);
+                const slots = imageAssignments[key] || [];
+                const filledSlots = slots.filter(s => s !== null).length;
+                if (filledSlots === 0) {
+                    errors.push(`${product.title} - ${color}: No images assigned`);
                 }
             });
-
-            product.createdAt = new Date().toISOString();
-            product.featured = false;
-
-            if (product.name && product.description && product.price && product.category) {
-                products.push(product);
-            } else {
-                console.warn(`Line ${i + 1}: Missing required fields. Skipping.`);
-            }
-        }
-
-        return products;
+        });
+        return errors;
     };
 
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setCsvData(event.target.result);
-            };
-            reader.readAsText(file);
-        }
-    };
-
-    const handleBulkImport = async () => {
-        if (!csvData.trim()) {
-            setImportResult({ success: false, error: 'Please upload a CSV file or paste CSV data' });
+    // Step 4: Process and create products
+    const handleCreateProducts = async () => {
+        const errors = validateAssignments();
+        if (errors.length > 0) {
+            setImportResult({
+                success: false,
+                error: 'Please assign images to all variants',
+                errors
+            });
             return;
         }
 
+        setImportStep(4); // Processing
         setImporting(true);
-        setImportResult(null);
+        setImportProgress(0);
 
         try {
-            const products = parseCSV(csvData);
             let successCount = 0;
             let errorCount = 0;
-            const errors = [];
+            const errorDetails = [];
 
-            for (const product of products) {
+            for (let i = 0; i < parsedProducts.length; i++) {
+                const product = parsedProducts[i];
+
                 try {
-                    const result = await addProduct(product);
-                    if (result.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                        errors.push(`${product.name}: ${result.error}`);
+                    // Upload images and build product data
+                    const colorSizeStock = {};
+                    const colorImages = {};
+                    const allSizes = new Set();
+
+                    for (const [color, sizeData] of Object.entries(product.variants)) {
+                        const variantKey = getVariantKey(product.handle, color);
+                        const imageSlots = imageAssignments[variantKey] || [];
+
+                        // Upload images for this color
+                        const imageUrls = [];
+                        for (let j = 0; j < imageSlots.length; j++) {
+                            const file = imageSlots[j];
+                            if (file) {
+                                const filename = `${Date.now()}_${product.handle}_${color}_${j + 1}.jpg`;
+                                const storageRef = ref(storage, `products/${filename}`);
+                                await uploadBytes(storageRef, file);
+                                const url = await getDownloadURL(storageRef);
+                                imageUrls.push(url);
+                            }
+                        }
+
+                        colorImages[color] = imageUrls;
+
+                        // Build stock data
+                        colorSizeStock[color] = {};
+                        sizeData.forEach(({ size, stock }) => {
+                            colorSizeStock[color][size] = stock;
+                            allSizes.add(size);
+                        });
                     }
-                } catch (error) {
+
+                    // Create product
+                    const productData = {
+                        name: product.title,
+                        category: product.category.toLowerCase(),
+                        price: parseFloat(product.price),
+                        description: product.description,
+                        colors: Object.keys(colorSizeStock),
+                        sizes: Array.from(allSizes),
+                        colorSizeStock,
+                        colorImages,
+                        image: Object.values(colorImages)[0]?.[0] || '',
+                        images: Object.values(colorImages)[0] || [],
+                        stock: Object.values(colorSizeStock).reduce((acc, sizes) =>
+                            acc + Object.values(sizes).reduce((s, q) => s + q, 0), 0
+                        ),
+                        rating: 0,
+                        reviewCount: 0,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    await addProduct(productData);
+                    successCount++;
+                } catch (err) {
                     errorCount++;
-                    errors.push(`${product.name}: ${error.message}`);
+                    errorDetails.push(`${product.title}: ${err.message}`);
                 }
+
+                setImportProgress(Math.round(((i + 1) / parsedProducts.length) * 100));
             }
 
             setImportResult({
                 success: successCount > 0,
-                message: `Imported ${successCount} products successfully`,
-                errors: errorCount > 0 ? errors : null,
+                message: `Created ${successCount} products successfully`,
                 successCount,
-                errorCount
+                errorCount,
+                errors: errorCount > 0 ? errorDetails : null
             });
 
             if (successCount > 0) {
                 loadProducts();
             }
-
         } catch (error) {
             setImportResult({ success: false, error: error.message });
         } finally {
             setImporting(false);
         }
+    };
+
+    // Reset workflow
+    const resetBulkImport = () => {
+        setImportStep(1);
+        setCsvData('');
+        setParsedProducts([]);
+        setUploadedImages([]);
+        setImageAssignments({});
+        setImportResult(null);
+        setImportProgress(0);
     };
 
     const downloadSample = () => {
@@ -461,6 +584,8 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
         a.click();
         window.URL.revokeObjectURL(url);
     };
+
+
 
     return (
         <div className="admin-dashboard">
@@ -557,7 +682,9 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                                             required
                                         />
                                     </div>
+                                </div>
 
+                                <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">Category *</label>
                                         <select
@@ -782,25 +909,64 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Product Image</label>
-                                    <div className="image-upload-area">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            className="image-input"
-                                            id="image-upload"
-                                        />
-                                        <label htmlFor="image-upload" className="image-upload-label">
-                                            {imagePreview ? (
-                                                <img src={imagePreview} alt="Preview" className="image-preview" />
-                                            ) : (
-                                                <div className="upload-placeholder">
-                                                    <p>📷 Click to upload image</p>
-                                                    <span>PNG, JPG up to 5MB</span>
+                                    <label className="form-label">Variant Images (Max 4 per color)</label>
+                                    <div className="variant-images-management">
+                                        {(formData.colors.length > 0 ? formData.colors : ['default']).map(color => (
+                                            <div key={color} className="color-image-group">
+                                                <label className="color-group-label">{color === 'default' ? 'Default Images' : `${color} Images`}</label>
+                                                <div className="image-slots-grid">
+                                                    {[1, 2, 3, 4].map(slotIdx => {
+                                                        const slotKey = `${color}__${slotIdx}`;
+                                                        const slotValue = manualImageSlots[slotKey];
+                                                        const previewUrl = slotValue instanceof File ? URL.createObjectURL(slotValue) : slotValue;
+
+                                                        return (
+                                                            <div key={slotIdx} className="image-slot">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files[0];
+                                                                        if (file) {
+                                                                            setManualImageSlots(prev => ({
+                                                                                ...prev,
+                                                                                [slotKey]: file
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    className="slot-input-hidden"
+                                                                    id={`manual-slot-${slotKey}`}
+                                                                />
+                                                                <label htmlFor={`manual-slot-${slotKey}`} className="slot-upload-btn">
+                                                                    {previewUrl ? (
+                                                                        <div className="slot-preview-wrapper">
+                                                                            <img src={previewUrl} alt="Preview" className="slot-img-preview" />
+                                                                            <button
+                                                                                type="button"
+                                                                                className="remove-slot-img"
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                    const newSlots = { ...manualImageSlots };
+                                                                                    delete newSlots[slotKey];
+                                                                                    setManualImageSlots(newSlots);
+                                                                                }}
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="slot-placeholder">
+                                                                            <span>+</span>
+                                                                        </div>
+                                                                    )}
+                                                                </label>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            )}
-                                        </label>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -818,108 +984,305 @@ Classic Blue Jeans,"Premium denim jeans with stretch comfort. Perfect fit for al
                 )}
 
                 {/* Bulk Import Modal */}
+
+
+
                 {showBulkImport && (
-                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); }}>
-                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-backdrop" onClick={() => { setShowBulkImport(false); resetBulkImport(); }}>
+                        <div className="modal-content bulk-import-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto' }}>
                             <div className="modal-header">
-                                <h2>📦 Bulk Import Products</h2>
-                                <button className="modal-close" onClick={() => { setShowBulkImport(false); setCsvData(''); setImportResult(null); }}>
+                                <h2>📦 Bulk Import Products - Step {importStep} of 4</h2>
+                                <button className="modal-close" onClick={() => { setShowBulkImport(false); resetBulkImport(); }}>
                                     ✕
                                 </button>
                             </div>
 
                             <div className="bulk-import-content">
-                                <div className="info-section">
-                                    <h3>📋 CSV Format Guide:</h3>
-                                    <p><strong>Required Columns:</strong> name, description, price, category</p>
-                                    <p><strong>Stock Options (choose ONE):</strong></p>
-                                    <ul style={{ marginLeft: '2rem', marginBottom: '1rem' }}>
-                                        <li><strong>colorSizeStock</strong> - Combined color-size inventory (RECOMMENDED)</li>
-                                        <li><strong>colors + sizeStock</strong> - Separate color list and size inventory</li>
-                                    </ul>
-                                    <p><strong>Optional Columns:</strong> originalPrice, discount, colorStock, images, features, specifications</p>
-                                    <p style={{ color: '#dc2626', fontWeight: 600, marginTop: '0.5rem' }}>⚠️ Note: Rating and reviews are NOT included in bulk import - they can only be added by customers.</p>
+                                {/* Step 1: CSV Upload */}
+                                {importStep === 1 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>📋 Step 1: Upload Product CSV</h3>
+                                            <p>Upload a CSV file with your product data. Required columns:</p>
+                                            <code style={{ display: 'block', padding: '10px', background: '#f5f5f5', marginBottom: '10px' }}>
+                                                handle, title, category, price, size, color, stock
+                                            </code>
+                                            <button className="btn btn-sm btn-outline" onClick={downloadSample}>
+                                                📥 Download Sample CSV
+                                            </button>
+                                        </div>
 
-                                    <div className="format-details">
-                                        <h4>Column Formats:</h4>
-                                        <ul>
-                                            <li><strong>name:</strong> Product name (e.g., Premium White Shirt)</li>
-                                            <li><strong>description:</strong> Product description (use quotes if contains commas)</li>
-                                            <li><strong>price:</strong> Decimal number (e.g., 59.99)</li>
-                                            <li><strong>category:</strong> Product category (shirts, tshirts, jeans, jackets)</li>
-                                            <li style={{ background: '#f0f4ff', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem' }}>
-                                                <strong>colorSizeStock (RECOMMENDED):</strong> Combined color-size inventory<br />
-                                                Format: <code>Color:Size:Qty Size:Qty|Color:Size:Qty Size:Qty</code><br />
-                                                Example: <code>"Blue:S:10 M:15 L:20 XL:8|Red:S:8 M:12 L:15 XL:5"</code><br />
-                                                <em>This format links each color to its specific size availability</em>
-                                            </li>
-                                            <li><strong>colors:</strong> Space-separated color names (e.g., White Blue Black Red)</li>
-                                            <li><strong>colorStock:</strong> Space-separated color:quantity pairs (e.g., White:30 Blue:25 Black:20)</li>
-                                            <li><strong>sizeStock:</strong> Space-separated size:quantity pairs (e.g., XS:5 S:15 M:20 L:10 XL:5)</li>
-                                            <li><strong>images:</strong> Pipe-separated URLs (e.g., url1.jpg|url2.jpg|url3.jpg)</li>
-                                            <li><strong>features:</strong> Pipe-separated product highlights (e.g., Premium Cotton|Wrinkle Resistant)</li>
-                                            <li><strong>specifications:</strong> Pipe-separated key:value pairs (e.g., Material:Cotton|Fit:Regular)</li>
-                                            <li><strong>originalPrice:</strong> Original price before discount (e.g., 79.99)</li>
-                                            <li><strong>discount:</strong> Discount percentage as integer (e.g., 25 for 25% off)</li>
-                                        </ul>
-                                    </div>
+                                        <div className="upload-section" style={{ marginTop: '20px' }}>
+                                            <label className="file-upload-label">
+                                                <input
+                                                    type="file"
+                                                    accept=".csv"
+                                                    onChange={handleCSVUpload}
+                                                    className="file-input-hidden"
+                                                />
+                                                <span>📄 Choose CSV File</span>
+                                            </label>
+                                        </div>
 
-                                    <button className="btn btn-sm btn-outline" onClick={downloadSample}>
-                                        📥 Download Sample CSV
-                                    </button>
-                                </div>
+                                        {csvData && parsedProducts.length > 0 && (
+                                            <div style={{ marginTop: '20px', padding: '15px', background: '#f0f9ff', borderRadius: '8px' }}>
+                                                <h4>✅ CSV Loaded Successfully</h4>
+                                                <p style={{ margin: '10px 0' }}>
+                                                    Found <strong>{parsedProducts.length} products</strong> with{' '}
+                                                    <strong>{parsedProducts.reduce((acc, p) => acc + Object.keys(p.variants).length, 0)} variants</strong>
+                                                </p>
+                                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '4px', background: '#fff' }}>
+                                                    {parsedProducts.map((product, i) => (
+                                                        <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < parsedProducts.length - 1 ? '1px solid #eee' : 'none' }}>
+                                                            <strong>{product.title}</strong> ({product.category}) - ₹{product.price}
+                                                            <div style={{ marginLeft: '20px', fontSize: '13px', color: '#666' }}>
+                                                                Colors: {Object.keys(product.variants).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
-                                <div className="upload-section">
-                                    <label className="file-upload-label">
-                                        <input
-                                            type="file"
-                                            accept=".csv"
-                                            onChange={handleFileUpload}
-                                            className="file-input-hidden"
-                                        />
-                                        <span>📁 Choose CSV File</span>
-                                    </label>
-                                    <p className="or-text">Or paste CSV data below:</p>
-                                    <textarea
-                                        className="csv-textarea"
-                                        value={csvData}
-                                        onChange={(e) => setCsvData(e.target.value)}
-                                        placeholder="Paste CSV data here..."
-                                        rows="8"
-                                    />
-                                </div>
+                                        {importResult && !importResult.success && (
+                                            <div className="import-result error" style={{ marginTop: '15px' }}>
+                                                <h4>❌ Error</h4>
+                                                <p>{importResult.error}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
 
-                                <button
-                                    className="btn btn-primary btn-full"
-                                    onClick={handleBulkImport}
-                                    disabled={importing || !csvData.trim()}
-                                >
-                                    {importing ? '⏳ Importing...' : '🚀 Import Products'}
-                                </button>
+                                {/* Step 2: Image Upload */}
+                                {importStep === 2 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>📷 Step 2: Upload Product Images</h3>
+                                            <p>Upload all product images. You can select multiple files at once.</p>
+                                            <p style={{ color: '#666', fontSize: '14px' }}>
+                                                Tip: Upload at least 4 images per color variant for best results.
+                                            </p>
+                                        </div>
 
-                                {importResult && (
-                                    <div className={`import-result ${importResult.success ? 'success' : 'error'}`}>
-                                        {importResult.success ? (
-                                            <>
-                                                <h4>✅ {importResult.message}</h4>
-                                                {importResult.errorCount > 0 && (
+                                        <div className="upload-section" style={{ marginTop: '20px' }}>
+                                            <label className="file-upload-label">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    onChange={handleImageUpload}
+                                                    className="file-input-hidden"
+                                                />
+                                                <span>📁 Select Images (Multiple)</span>
+                                            </label>
+                                        </div>
+
+                                        {uploadedImages.length > 0 && (
+                                            <div style={{ marginTop: '20px' }}>
+                                                <p style={{ fontWeight: 'bold' }}>✅ {uploadedImages.length} images uploaded</p>
+                                                <button
+                                                    className="btn btn-outline"
+                                                    onClick={() => setImportStep(1)}
+                                                    style={{ marginRight: '10px' }}
+                                                >
+                                                    ← Back to CSV
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Step 3: Image Assignment */}
+                                {importStep === 3 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>🎯 Step 3: Assign Images to Variants</h3>
+                                            <p>Click on a slot to assign an image from the pool below.</p>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px', maxHeight: '500px', overflowY: 'auto' }}>
+                                            {parsedProducts.map((product) => (
+                                                <div key={product.handle} style={{ marginBottom: '30px', padding: '15px', border: '1px solid #ddd', borderRadius: '8px' }}>
+                                                    <h4 style={{ marginBottom: '15px' }}>{product.title}</h4>
+
+                                                    {Object.keys(product.variants).map((color) => {
+                                                        const variantKey = getVariantKey(product.handle, color);
+                                                        const slots = imageAssignments[variantKey] || [null, null, null, null];
+
+                                                        return (
+                                                            <div key={color} style={{ marginBottom: '20px', padding: '10px', background: '#f9f9f9', borderRadius: '6px' }}>
+                                                                <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#333' }}>
+                                                                    {color} - {product.variants[color].map(s => s.size).join(', ')}
+                                                                </div>
+
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                                                    {slots.map((assignedImg, slotIdx) => (
+                                                                        <div
+                                                                            key={slotIdx}
+                                                                            style={{
+                                                                                border: '2px dashed #ccc',
+                                                                                borderRadius: '8px',
+                                                                                aspectRatio: '1',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                cursor: 'pointer',
+                                                                                background: assignedImg ? '#f0f9ff' : '#fff',
+                                                                                position: 'relative',
+                                                                                overflow: 'hidden'
+                                                                            }}
+                                                                            onClick={() => {
+                                                                                if (!assignedImg) {
+                                                                                    const unassigned = getUnassignedImages();
+                                                                                    if (unassigned.length > 0) {
+                                                                                        assignImageToSlot(variantKey, slotIdx, unassigned[0]);
+                                                                                    }
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {assignedImg ? (
+                                                                                <>
+                                                                                    <img
+                                                                                        src={URL.createObjectURL(assignedImg)}
+                                                                                        alt={`Slot ${slotIdx + 1}`}
+                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            removeImageFromSlot(variantKey, slotIdx);
+                                                                                        }}
+                                                                                        style={{
+                                                                                            position: 'absolute',
+                                                                                            top: '5px',
+                                                                                            right: '5px',
+                                                                                            background: 'rgba(255,0,0,0.8)',
+                                                                                            color: '#fff',
+                                                                                            border: 'none',
+                                                                                            borderRadius: '50%',
+                                                                                            width: '24px',
+                                                                                            height: '24px',
+                                                                                            cursor: 'pointer',
+                                                                                            fontSize: '16px',
+                                                                                            lineHeight: '1'
+                                                                                        }}
+                                                                                    >
+                                                                                        ×
+                                                                                    </button>
+                                                                                </>
+                                                                            ) : (
+                                                                                <div style={{ textAlign: 'center', color: '#999', fontSize: '12px' }}>
+                                                                                    <div style={{ fontSize: '24px', marginBottom: '5px' }}>+</div>
+                                                                                    Slot {slotIdx + 1}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Unassigned Images Pool */}
+                                        <div style={{ marginTop: '20px', padding: '15px', background: '#f5f5f5', borderRadius: '8px' }}>
+                                            <h4>Available Images ({getUnassignedImages().length})</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                                                {getUnassignedImages().map((img, idx) => (
+                                                    <div key={idx} style={{ aspectRatio: '1', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                                                        <img
+                                                            src={URL.createObjectURL(img)}
+                                                            alt={img.name}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            title={img.name}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                                            <button
+                                                className="btn btn-outline"
+                                                onClick={() => setImportStep(2)}
+                                            >
+                                                ← Back
+                                            </button>
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleCreateProducts}
+                                                disabled={importing}
+                                            >
+                                                ✓ Create Products
+                                            </button>
+                                        </div>
+
+                                        {importResult && !importResult.success && (
+                                            <div className="import-result error" style={{ marginTop: '15px' }}>
+                                                <h4>❌ Error</h4>
+                                                <p>{importResult.error}</p>
+                                                {importResult.errors && (
+                                                    <ul className="error-list">
+                                                        {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Step 4: Processing */}
+                                {importStep === 4 && (
+                                    <>
+                                        <div className="info-section">
+                                            <h3>⚙️ Processing...</h3>
+                                            <p>Uploading images and creating products...</p>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px' }}>
+                                            <div style={{ width: '100%', height: '20px', background: '#e0e0e0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                <div
+                                                    style={{
+                                                        width: `${importProgress}%`,
+                                                        height: '100%',
+                                                        background: 'linear-gradient(90deg, #4caf50, #45a049)',
+                                                        transition: 'width 0.3s'
+                                                    }}
+                                                />
+                                            </div>
+                                            <p style={{ textAlign: 'center', marginTop: '10px', fontWeight: 'bold' }}>{importProgress}%</p>
+                                        </div>
+
+                                        {importResult && (
+                                            <div className={`import-result ${importResult.success ? 'success' : 'error'}`} style={{ marginTop: '20px' }}>
+                                                {importResult.success ? (
                                                     <>
-                                                        <p><strong>⚠️ {importResult.errorCount} failed:</strong></p>
-                                                        <ul className="error-list">
-                                                            {importResult.errors.slice(0, 5).map((err, i) => (
-                                                                <li key={i}>{err}</li>
-                                                            ))}
-                                                        </ul>
+                                                        <h4>✅ {importResult.message}</h4>
+                                                        <p>Products created successfully!</p>
+                                                        <button
+                                                            className="btn btn-primary"
+                                                            onClick={() => { setShowBulkImport(false); resetBulkImport(); }}
+                                                            style={{ marginTop: '15px' }}
+                                                        >
+                                                            Close
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <h4>❌ Import Failed</h4>
+                                                        <p>{importResult.error}</p>
+                                                        {importResult.errors && (
+                                                            <ul className="error-list">
+                                                                {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                                            </ul>
+                                                        )}
                                                     </>
                                                 )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <h4>❌ Import Failed</h4>
-                                                <p>{importResult.error}</p>
-                                            </>
+                                            </div>
                                         )}
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         </div>

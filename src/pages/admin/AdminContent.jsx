@@ -9,9 +9,11 @@ import {
     updateCategory,
     deleteCategory
 } from '../../firebase/firebaseService';
+import { useToast } from '../../context/ToastContext';
 import './AdminContent.css';
 
 const AdminContent = () => {
+    const toast = useToast();
     const [activeTab, setActiveTab] = useState('testimonials');
     const [testimonials, setTestimonials] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -59,17 +61,17 @@ const AdminContent = () => {
                 if (editingItem) {
                     const result = await updateTestimonial(editingItem.id, formData);
                     if (result.success) {
-                        alert('Testimonial updated successfully!');
+                        toast.success('Testimonial updated successfully!');
                     } else {
-                        alert('Error updating testimonial: ' + result.error);
+                        toast.error(`Error updating testimonial: ${result.error}`);
                         return;
                     }
                 } else {
                     const result = await addTestimonial(formData);
                     if (result.success) {
-                        alert('Testimonial added successfully!');
+                        toast.success('Testimonial added successfully!');
                     } else {
-                        alert('Error adding testimonial: ' + result.error);
+                        toast.error(`Error adding testimonial: ${result.error}`);
                         return;
                     }
                 }
@@ -77,9 +79,9 @@ const AdminContent = () => {
                 if (editingItem) {
                     const result = await updateCategory(editingItem.id, formData);
                     if (result.success) {
-                        alert('Category updated successfully!');
+                        toast.success('Category updated successfully!');
                     } else {
-                        alert('Error updating category: ' + result.error);
+                        toast.error(`Error updating category: ${result.error}`);
                         return;
                     }
                 }
@@ -91,13 +93,16 @@ const AdminContent = () => {
             loadData();
         } catch (error) {
             console.error('Error in handleSubmit:', error);
-            alert('An error occurred: ' + error.message);
+            toast.error(`An error occurred: ${error.message}`);
         }
     };
 
     const handleEdit = (item) => {
         setEditingItem(item);
-        setFormData(item);
+        setFormData({
+            ...item,
+            originalImage: item.image // Store original image/emoji for restoration
+        });
         setShowModal(true);
     };
 
@@ -411,7 +416,29 @@ const AdminContent = () => {
                                                 <label htmlFor="image-upload" className="upload-label">
                                                     {formData.image ? (
                                                         formData.image.startsWith('data:') || formData.image.startsWith('http') ? (
-                                                            <img src={formData.image} alt="Preview" className="image-preview" />
+                                                            <div className="image-preview-container">
+                                                                <img src={formData.image} alt="Preview" className="image-preview" />
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-delete-image"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        // Restore original emoji if it exists and wasn't an image
+                                                                        const originalEmoji = formData.originalImage &&
+                                                                            !formData.originalImage.startsWith('data:') &&
+                                                                            !formData.originalImage.startsWith('http')
+                                                                            ? formData.originalImage
+                                                                            : '📦'; // Default emoji if no original
+                                                                        setFormData({ ...formData, image: originalEmoji });
+                                                                    }}
+                                                                    title="Delete image and restore emoji"
+                                                                >
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                        <polyline points="3 6 5 6 21 6" />
+                                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         ) : (
                                                             <div className="emoji-preview">{formData.image}</div>
                                                         )
